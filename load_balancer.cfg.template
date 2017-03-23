@@ -1,0 +1,26 @@
+[openstack]
+username=<@username>
+password=<@password>
+user_domain_name=<@user_domain_name>
+project_name=<@project_name>
+project_domain_name=<@project_domain_name>
+auth_url=<@auth_url>
+
+
+[monitoring]
+username=<@username>
+password=<@password>
+project_name=<@project_name>
+auth_url=<@auth_url>
+monasca_api_version=v2_0
+
+
+[infrastructure]
+servers=<>
+#List of hostnames or ips of servers that the loadbalancer will manage (separated by comma).
+
+
+[loadbalancer]
+host_address=0.0.0.0
+host_port=2700
+use_debug=False
