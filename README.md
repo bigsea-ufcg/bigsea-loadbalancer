@@ -15,7 +15,7 @@ BigSea WP3 - LoadBalancer
 
 ...
 
-#### LB API
+#### LoadBalancer API
 
 | HTTP Method | Action | URI | Parameters |
 |:------------:|:-------------:|:-------------:|:-------------|
