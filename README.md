@@ -4,11 +4,11 @@ BigSea WP3 - LoadBalancer
 #### Table of Contents
 
 - [Overview](#overview)
-    - [LB API](#loadbalancer-api)
+    - [LoadBalancer API](#loadbalancer-api)
 - [Installation](#installation)
 - [Configuration](#configuration)
     - [Example of configuration file](#example-of-configuration-file)
-- [Running the LoadBalancer](#running)
+- [Running the LoadBalancer](#running-the-loadbalancer)
 
 
 ## Overview
