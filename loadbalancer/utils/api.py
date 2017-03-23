@@ -7,7 +7,7 @@ from logger import *
 from utils import *
 
 
-LOG = Log("LB_UtilsAPI","LB_utilsapi.log")
+LOG = Log("LB_UtilsAPI", "LB_utilsapi.log")
 
 
 class Rest(flask.Blueprint):
@@ -72,7 +72,9 @@ class Rest(flask.Blueprint):
 
         return decorator
 
+
 RT_JSON = datastructures.MIMEAccept([("application/json", 1)])
+
 
 def _init_resp_type(file_upload):
     """Extracts response content type."""
@@ -225,5 +227,3 @@ def not_found(error):
                                         name=error.code)
 
     return render_error_message(error_code, error.message, error.code)
-
-

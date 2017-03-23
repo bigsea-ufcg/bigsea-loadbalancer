@@ -7,5 +7,5 @@ class ConductorManager(object):
         super(ConductorManager, self).__init__()
         self.heuristic = HeuristicManager()
 
-    def migration(self,**kwargs):
+    def migration(self, **kwargs):
         return self.heuristic.execute_heuristic(**kwargs)

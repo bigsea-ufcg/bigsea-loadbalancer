@@ -7,4 +7,3 @@ setup(
         'flask',
     ],
 )
-

@@ -7,19 +7,22 @@ from monascaclient import client as monclient, ksclient
 class MonascaManager:
 
     def __init__(self):
-        # Note: Maybe we can figure out another way to not read the configuration again here
+        # Note: Maybe we can figure out another way
+        # to not read the configuration again here
         config = ConfigParser.RawConfigParser()
         config.read('load_balancer.cfg')
 
-        self.monasca_username = config.get('monitoring','username')
+        self.monasca_username = config.get('monitoring', 'username')
         self.monasca_password = config.get('monitoring', 'password')
         self.monasca_auth_url = config.get('monitoring', 'auth_url')
         self.monasca_project_name = config.get('monitoring', 'project_name')
-        self.monasca_api_version = config.get('monitoring', 'monasca_api_version')
+        self.monasca_api_version = config.get('monitoring',
+                                              'monasca_api_version')
 
         self._get_monasca_client()
 
-    def get_measurements(self, metric_name, dimensions, start_time='2014-01-01T00:00:00Z'):
+    def get_measurements(self, metric_name, dimensions,
+                         start_time='2014-01-01T00:00:00Z'):
         measurements = []
         try:
             monasca_client = self._get_monasca_client()
@@ -37,12 +40,16 @@ class MonascaManager:
             return None
 
     def first_measurement(self, name, dimensions):
-        return [None, None, None] if self.get_measurements(name, dimensions) is None \
-            else self.get_measurements(name, dimensions)[0]
+        if self.get_measurements(name, dimensions) is None:
+            return [None, None, None]
+        else:
+            return self.get_measurements(name, dimensions)[0]
 
     def last_measurement(self, name, dimensions):
-        return [None, None, None] if self.get_measurements(name, dimensions) is None \
-            else self.get_measurements(name, dimensions)[-1]
+        if self.get_measurements(name, dimensions) is None:
+            return [None, None, None]
+        else:
+            return self.get_measurements(name, dimensions)[-1]
 
     def _get_monasca_client(self):
 
@@ -56,8 +63,10 @@ class MonascaManager:
         )
 
         # Monasca Client
-        monasca_client = monclient.Client(self.monasca_api_version, ks.monasca_url,
-                                          token=ks.token,
-                                          debug=False)
+        monasca_client = monclient.Client(
+            self.monasca_api_version,
+            ks.monasca_url, token=ks.token,
+            debug=False
+        )
 
         return monasca_client

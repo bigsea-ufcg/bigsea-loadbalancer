@@ -1,5 +1,5 @@
 import logging
-import time
+
 
 class Log:
 
@@ -13,6 +13,7 @@ class Log:
 
     def log(self, text):
         self.logger.info(text)
+
 
 def configure_logging():
     logging.basicConfig(level=logging.DEBUG)

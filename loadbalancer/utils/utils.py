@@ -1,7 +1,9 @@
 import datetime
 import json
+import six
 
-from loadbalancer.exceptions import *
+
+from loadbalancer import exceptions
 
 
 class ActionDispatcher(object):
@@ -15,6 +17,7 @@ class ActionDispatcher(object):
 
     def default(self, data):
         raise NotImplementedError()
+
 
 class DictSerializer(ActionDispatcher):
     """Default request body serialization."""
@@ -55,7 +58,7 @@ class JSONDeserializer(TextDeserializer):
             return json.loads(datastring)
         except ValueError:
             msg = ("cannot understand JSON")
-            raise MalformedRequestBody(msg)
+            raise exceptions.MalformedRequestBody(msg)
 
     def default(self, datastring):
         return {'body': self._from_json(datastring)}
