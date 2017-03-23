@@ -4,11 +4,11 @@ BigSea WP3 - LoadBalancer
 #### Table of Contents
 
 - [Overview](#overview)
-    - [LB API] (#loadbalancer-api)
+    - [LB API](#loadbalancer-api)
 - [Installation](#installation)
 - [Configuration](#configuration)
     - [Example of configuration file](#example-of-configuration-file)
-- [Running the LoadBalancer] (#running)
+- [Running the LoadBalancer](#running)
 
 
 ## Overview
@@ -18,8 +18,8 @@ BigSea WP3 - LoadBalancer
 #### LB API
 
 | HTTP Method | Action | URI | Parameters |
-|:------------:|:--------------:|:-------------:|:-------------|
-| GET | Request a migration to balance servers using the default heuristic or a given one | http://<host_address>:<host_port>/migration/cpu_usage | Optional: heuristic=<name> |
+|:------------:|:-------------:|:-------------:|:-------------|
+| GET | Request a migration to balance servers using the default heuristic or a given one | http://<host_address>:<host_port>/migration/cpu_usage | Optional: heuristic=name |
 
 
 
