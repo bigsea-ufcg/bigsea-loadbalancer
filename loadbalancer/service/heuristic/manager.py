@@ -1,4 +1,5 @@
 from loadbalancer.service.monasca.manager import MonascaManager
+from loadbalancer.service.migration.server_migration import MigrateServer
 
 
 class HeuristicManager(object):
@@ -35,11 +36,16 @@ class HeuristicManager(object):
     # using python-novaclient
     def __cpu_optimization(self):
         print "Executing cpu_optimization Heuristic"
-        return str(
-            self.monasca.last_measurement(
-                'cpu.percent', {'hostname': 'c4-compute11.lsd.ufcg.edu.br'}
-            )
+        migration_req = MigrateServer()
+        response = migration_req.migrate(
+            'd6f3c158-be48-41c9-9ca8-7ff477ed9bb1', 'c4-compute11'
         )
+        # return str(
+        #     self.monasca.last_measurement(
+        #         'cpu.percent', {'hostname': 'c4-compute11.lsd.ufcg.edu.br'}
+        #     )
+        # )
+        return response
 
     def __mem_optimization(self):
         print "Executing mem_optimization Heuristic"
