@@ -41,15 +41,20 @@ class MonascaManager:
 
     def first_measurement(self, name, dimensions):
         if self.get_measurements(name, dimensions) is None:
-            return [None, None, None]
+            return None
         else:
             return self.get_measurements(name, dimensions)[0]
 
     def last_measurement(self, name, dimensions):
         if self.get_measurements(name, dimensions) is None:
-            return [None, None, None]
+            return None
         else:
-            return self.get_measurements(name, dimensions)[-1]
+            response = dimensions.copy()
+            measurement = self.get_measurements(name, dimensions)[-1]
+            response['metric'] = name
+            response['timestamp'] = measurement[0]
+            response['value'] = measurement[1]
+            return response
 
     def _get_monasca_client(self):
 

@@ -36,8 +36,17 @@ class HeuristicManager(object):
     # using python-novaclient
     def __cpu_optimization(self):
         print "Executing cpu_optimization Heuristic"
-        migration_req = MigrateServer()
-        response = migration_req.migrate(
+        migrator = MigrateServer()
+
+        print migrator.get_hosts_instances(
+            migrator.available_hosts()
+        )
+
+        # Get Hosts cpu.percent metric (dict {'hostname': last(cpu.percent) }
+        # Verify each instance cpu.usage for each host
+
+        # Get instances cpu usage in each host
+        response = migrator.migrate(
             'd6f3c158-be48-41c9-9ca8-7ff477ed9bb1', 'c4-compute11'
         )
         # return str(

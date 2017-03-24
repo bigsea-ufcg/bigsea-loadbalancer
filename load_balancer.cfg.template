@@ -16,7 +16,7 @@ monasca_api_version=v2_0
 
 
 [infrastructure]
-servers=<>
+hosts=<>
 #List of hostnames or ips of servers that the loadbalancer will manage (separated by comma).
 
 
