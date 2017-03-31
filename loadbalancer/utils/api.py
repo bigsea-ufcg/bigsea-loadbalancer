@@ -181,7 +181,7 @@ def render_error_message(error_code, error_message, error_name):
 
 def internal_error(status_code, descr, exc=None):
     LOG.log("Request aborted with status code {code} and "
-            "message '{message}'").format(code=status_code, message=descr)
+            "message '{message}'".format(code=status_code, message=descr))
 
     if exc is not None:
         LOG.log(traceback.format_exc())

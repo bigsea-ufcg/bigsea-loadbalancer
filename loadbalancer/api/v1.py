@@ -10,4 +10,5 @@ def migration():
     result = api_v1.service_api_migration(
         **api_util.get_request_args().to_dict()
     )
+    print result
     return result

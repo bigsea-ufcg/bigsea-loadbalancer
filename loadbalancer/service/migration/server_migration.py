@@ -37,15 +37,17 @@ class MigrateServer:
         return nova_conn
 
     def migrate(self, server_id, new_host):
-        # TODO allow instance name if possible
         server = self.__nova_conn.servers.get(server_id)
-        if server.__getattr__('OS-EXT-SRV-ATTR:host') == new_host:
+        actual_host = server.__getattr__('OS-EXT-SRV-ATTR:host')
+        if actual_host == new_host:
             return "Impossible to execute migration to same host"
         else:
-            req_migration = server.live_migrate(host=new_host,
-                                                block_migration=True)
+            req_migration = server.live_migrate(host=new_host)
             print req_migration
-        return "Executing migration"
+
+        return "Executing migration of instance %s from %s to %s" % (
+            server_id, actual_host, new_host
+        )
 
     def available_hosts(self):
         available_hosts = []
@@ -56,17 +58,26 @@ class MigrateServer:
 
         return available_hosts
 
-    def get_hosts_instances(self, hosts):
-        hosts_instances = {}
+    def get_host_instances(self, host):
+        instances_ids = []
+        opts = {'all_tenants': '1', 'host': host}
+        for instance in self.__nova_conn.servers.list(search_opts=opts):
+            instances_ids.append(instance.id)
+        return instances_ids
+
+    def hosts_free_resources(self, hosts):
+        free_usage = {}
         for host in hosts:
-            if not host:
-                pass
-
-            instances_ids = []
-            opts = {'all_tenants': '1', 'host': host}
-            for instance in self.__nova_conn.servers.list(search_opts=opts):
-                instances_ids.append(instance.id)
-
-            hosts_instances[host] = instances_ids
-
-        return hosts_instances
+            for host_usage in self.__nova_conn.hosts.get(host):
+                resource = host_usage._info['resource']
+                if resource['project'] == '(total)':
+                    total = resource.copy()
+                    total.pop('project')
+                    total.pop('host')
+                if resource['project'] == '(used_now)':
+                    used_now = resource.copy()
+                    used_now.pop('project')
+                    used_now.pop('host')
+            free = {key: total[key] - used_now.get(key, 0) for key in total}
+            free_usage[host] = free
+        return free_usage

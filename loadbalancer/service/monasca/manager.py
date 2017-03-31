@@ -39,22 +39,36 @@ class MonascaManager:
         else:
             return None
 
-    def first_measurement(self, name, dimensions):
-        if self.get_measurements(name, dimensions) is None:
-            return None
-        else:
-            return self.get_measurements(name, dimensions)[0]
+    # def first_measurement(self, name, dimensions):
+    #     if self.get_measurements(name, dimensions) is None:
+    #         return None
+    #     else:
+    #         return self.get_measurements(name, dimensions)[0]
 
     def last_measurement(self, name, dimensions):
+        response = dimensions.copy()
+        response['metric'] = name
         if self.get_measurements(name, dimensions) is None:
-            return None
+            response['timestamp'] = None
+            response['value'] = None
+            return response
         else:
-            response = dimensions.copy()
             measurement = self.get_measurements(name, dimensions)[-1]
-            response['metric'] = name
             response['timestamp'] = measurement[0]
             response['value'] = measurement[1]
             return response
+
+    def get_measurements_group(self, metric_name,
+                               dimension_name, hostname, dimension_values):
+        group_measurement = {}
+        for element in dimension_values:
+            dimension = {dimension_name: element, 'hostname': hostname}
+            value = self.last_measurement(
+                'vm.cpu.utilization_norm_perc', dimension)['value']
+            if value is not None:
+                group_measurement[element] = value
+
+        return group_measurement
 
     def _get_monasca_client(self):
 

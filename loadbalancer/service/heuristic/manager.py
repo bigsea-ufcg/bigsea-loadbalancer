@@ -18,12 +18,6 @@ class HeuristicManager(object):
                 heuristic = kwargs.get('heuristic')
                 if heuristic == 'cpu_optimization':
                     return self.__cpu_optimization()
-                elif heuristic == 'mem_optimization':
-                    return self.__mem_optimization()
-                elif heuristic == 'disk_optimization':
-                    return self.__disk_optimization()
-                elif heuristic == 'net_optimization':
-                    return self.__net_optimization()
                 else:
                     # TODO: raise another HTTP Status
                     return "Invalid Heuristic"
@@ -31,41 +25,52 @@ class HeuristicManager(object):
                 # TODO: raise another HTTP Status
                 return "Invalid parameter"
 
-    # TODO: Get hostname information from load_balancer.cfg
-    # TODO: Get instances information for all given hosts in load_balancer.cfg
-    # using python-novaclient
     def __cpu_optimization(self):
         print "Executing cpu_optimization Heuristic"
         migrator = MigrateServer()
+        hosts = migrator.available_hosts()
 
-        print migrator.get_hosts_instances(
-            migrator.available_hosts()
-        )
+        metrics = {}
+        for host in hosts:
+            hostname = host + '.lsd.ufcg.edu.br'
+            metric = self.monasca.last_measurement(
+                'cpu.percent', {'hostname': hostname}
+            )
+            host_instances = migrator.get_host_instances(host)
+            instances_info = self.monasca.get_measurements_group(
+                'vm.cpu.utilization_norm_perc', 'resource_id',
+                hostname, host_instances
+            )
+            metrics.update({
+                host: {'value': metric['value'],
+                       'instances': instances_info}
+            })
 
-        # Get Hosts cpu.percent metric (dict {'hostname': last(cpu.percent) }
+        free_resource_info = migrator.hosts_free_resources(hosts)
+
+        decision = self.__cpu_optimization_decision(metrics,
+                                                    free_resource_info)
+        print decision
+
+        return str(metrics)
+
+        # Get Hosts cpu.percent metric (dict
+        # {'hostname' : {
+        #                 'value': cpu.percent,
+        #                 'instances': {
+        #                                 'id1' : cpu.percent,
+        #                                 'id2' : cpu.percent }
+        #                 }
+        # }
+        #
         # Verify each instance cpu.usage for each host
 
         # Get instances cpu usage in each host
-        response = migrator.migrate(
-            'd6f3c158-be48-41c9-9ca8-7ff477ed9bb1', 'c4-compute11'
-        )
-        # return str(
-        #     self.monasca.last_measurement(
-        #         'cpu.percent', {'hostname': 'c4-compute11.lsd.ufcg.edu.br'}
-        #     )
+        # response = migrator.migrate(
+        #     '7cb820ac-1394-4f3b-bc01-be1f70b6699c', 'c4-compute12'
         # )
-        return response
+        # return "" #response
 
-    def __mem_optimization(self):
-        print "Executing mem_optimization Heuristic"
-        return str(
-            self.monasca.last_measurement(
-                'cpu.percent', {'hostname': 'c4-compute11.lsd.ufcg.edu.br'}
-            )
-        )
+    def __cpu_optimization_decision(self, metrics, free_resource_info):
 
-    def __disk_optimization(self):
-        return "Executing disk_optimization Heuristic"
-
-    def __net_optimization(self):
-        return "Executing net_optimization Heuristic"
+        return None
