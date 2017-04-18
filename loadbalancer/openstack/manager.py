@@ -1,31 +1,18 @@
-import monascaclient.exc as exc
-import ConfigParser
-
 from monascaclient import client as monclient, ksclient
+
+import monascaclient.exc as exc
 
 
 class MonascaManager:
 
-    def __init__(self):
-        # Note: Maybe we can figure out another way
-        # to not read the configuration again here
-        config = ConfigParser.RawConfigParser()
-        config.read('load_balancer.cfg')
-
-        self.monasca_username = config.get('monitoring', 'username')
-        self.monasca_password = config.get('monitoring', 'password')
-        self.monasca_auth_url = config.get('monitoring', 'auth_url')
-        self.monasca_project_name = config.get('monitoring', 'project_name')
-        self.monasca_api_version = config.get('monitoring',
-                                              'monasca_api_version')
-
-        self._get_monasca_client()
+    def __init__(self, configuration):
+        self.configuration = configuration
 
     def get_measurements(self, metric_name, dimensions,
                          start_time='2014-01-01T00:00:00Z'):
         measurements = []
         try:
-            monasca_client = self._get_monasca_client()
+            monasca_client = self.__get_monasca_client()
             dimensions = dimensions
             measurements = monasca_client.metrics.list_measurements(
                 name=metric_name, dimensions=dimensions,
@@ -38,12 +25,6 @@ class MonascaManager:
             return measurements[0]['measurements']
         else:
             return None
-
-    # def first_measurement(self, name, dimensions):
-    #     if self.get_measurements(name, dimensions) is None:
-    #         return None
-    #     else:
-    #         return self.get_measurements(name, dimensions)[0]
 
     def last_measurement(self, name, dimensions):
         response = dimensions.copy()
@@ -70,20 +51,18 @@ class MonascaManager:
 
         return group_measurement
 
-    def _get_monasca_client(self):
-
-        # Authenticate to Keystone
+    def __get_monasca_client(self):
+        # Keystone Client
         ks = ksclient.KSClient(
-            auth_url=self.monasca_auth_url,
-            username=self.monasca_username,
-            password=self.monasca_password,
-            project_name=self.monasca_project_name,
-            debug=False
+            auth_url=self.configuration.get('monitoring', 'auth_url'),
+            username=self.configuration.get('monitoring', 'username'),
+            password=self.configuration.get('monitoring', 'password'),
+            project_name=self.configuration.get('monitoring', 'project_name'),
         )
 
         # Monasca Client
         monasca_client = monclient.Client(
-            self.monasca_api_version,
+            self.configuration.get('monitoring', 'monasca_api_version'),
             ks.monasca_url, token=ks.token,
             debug=False
         )

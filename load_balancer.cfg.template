@@ -16,11 +16,14 @@ monasca_api_version=v2_0
 
 
 [infrastructure]
-hosts=<>
+hosts=<host>,<host2>
+teste=
 #List of hostnames or ips of servers that the loadbalancer will manage (separated by comma).
 
 
-[loadbalancer]
-host_address=0.0.0.0
-host_port=2700
-use_debug=False
+[heuristic]
+# The filename for the module that is located in /loadbalancer/service/heuristic/
+# without .py extension
+module=<module_name>
+# The class name that is inside the given module, this class should implement BasicHeuristic
+class=<class_name>
