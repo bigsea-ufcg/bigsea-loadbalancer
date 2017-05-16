@@ -1,11 +1,13 @@
 from loadbalancer.service.heuristic.base import BaseHeuristic
 from loadbalancer.utils.kvm import RemoteKvm
+from loadbalancer.utils.ssh_utils import SSH_Utils
 
 class ProActiveCap(BaseHeuristic):
 
     def __init__(self, **kwargs):
+        self.ssh_utils = SSH_Utils({})
         self.monasca = kwargs['monasca']
-        self.kvm = RemoteKvm(kwargs['config'])
+        self.kvm = RemoteKvm(self.ssh_utils, kwargs['config'])
         if kwargs['provider'] == 'OpenStack':
             self.openstack = kwargs['openstack']
 

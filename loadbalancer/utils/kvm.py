@@ -1,18 +1,17 @@
-from subprocess import check_output
-
 class RemoteKvm:
 
-    def __init__(self, config):
+    def __init__(self, ssh_utils, config):
+        self.ssh_utils = ssh_utils
         self.user = config.get('infrastructure', 'user')
         self.keypair = config.get('infrastructure', 'key')
 
     def retrive_cpu_cap(self, host, instance_id):
         virsh_command = ("virsh schedinfo %s | grep vcpu_quota | awk '{print $3}'" %
                    (instance_id))
-        ssh = ('ssh -o "StrictHostKeyChecking no" -i %s %s@%s' %
-               (self.keypair, self.user, host))
-        cpu_cap = check_output(ssh + virsh_command, shell=True)
-        return cpu_cap
+
+        ssh_result = self.ssh_utils.run_and_get_result(virsh_command, "root", host, self.keypair)
+        
+        return int(ssh_result)
 
     def get_percentage_cpu_cap(self, host, instances):
         cap_percentage = {}
