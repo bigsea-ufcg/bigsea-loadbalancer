@@ -1,7 +1,7 @@
 import sys
 
 from loadbalancer.openstack.connector import OpenStackConnector
-from loadbalancer.openstack.manager import MonascaManager
+from loadbalancer.utils.monitoring import MonascaManager
 from loadbalancer.utils import validation
 
 import argparse
@@ -57,17 +57,20 @@ def main():
         else:
             config.read('load_balancer.cfg')
 
-        validation.configuration_file(config)
+        kwargs = {'monasca': MonascaManager(config), 'config': config}
 
-        os_connector = OpenStackConnector(config)
-        monasca = MonascaManager(config)
+        iaas_provider = config.get('infrastructure', 'provider')
+        if iaas_provider == 'OpenStack':
+            kwargs['openstack'] = OpenStackConnector(config)
+
         heuristic_module = config.get('heuristic', 'module')
         heuristic_name = config.get('heuristic', 'class')
-
         heuristic = get_heuristic_class(heuristic_module, heuristic_name)
-        heuristic_instance = heuristic(os_connector, monasca)
+        heuristic_instance = heuristic(**kwargs)
+
+        print "Heuristic Created"
         while True:
-            heuristic_instance.execute()
+            heuristic_instance.decision()
             time.sleep(1800)
 
     except Exception as e:

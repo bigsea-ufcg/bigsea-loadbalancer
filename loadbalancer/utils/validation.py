@@ -13,15 +13,3 @@ def cmd(arguments):
             raise Exception(message)
 
     return arguments
-
-
-def configuration_file(conf):
-    for section in conf.sections():
-        for option in conf.options(section):
-            if conf.get(section, option):
-                pass
-            else:
-                message = ("Empty value for option %s in section %s") % (
-                    option, section
-                )
-                raise Exception(message)

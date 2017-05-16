@@ -1,11 +1,13 @@
 from loadbalancer.service.heuristic.base import BaseHeuristic
 
 
-class BalanceInstances(BaseHeuristic):
+class BalanceInstancesOS(BaseHeuristic):
 
-    def __init__(self, openstack, monasca):
-        self.openstack = openstack
-        self.monasca = monasca
+    def __init__(self, **kwargs):
+        print "init Balance Instances"
+        self.monasca = kwargs['monasca']
+        if kwargs['provider'] == 'OpenStack':
+            self.openstack = kwargs['openstack']
 
     def collect_information(self):
         hosts = self.openstack.available_hosts()
@@ -28,11 +30,14 @@ class BalanceInstances(BaseHeuristic):
                 host: {'value': metric['value'], 'instances': instances_info}
             })
 
-        free_resource_info = self.openstack.hosts_free_resources(hosts)
-        return (metrics, free_resource_info)
 
-    def execute(self, **kwargs):
-        metrics, free_resource = self.collect_information()
+        resource_info = self.openstack.hosts_resources(hosts)
+        print resource_info
+        return (metrics, resource_info)
+
+    def decision(self):
+        metrics, resource = self.collect_information()
+        #hosts_ percentage = self.
 
         evacuate_host, instances_count = self.__high_utilization_host(metrics)
 
@@ -49,6 +54,7 @@ class BalanceInstances(BaseHeuristic):
         migrations = {}
 
         instances_evacuate = metrics[evacuate_host]['instances']
+
         while instances_count != ideal_number_of_instances:
             for instance in instances_evacuate:
                 host_destiny = self.select_host(num_instances_host,

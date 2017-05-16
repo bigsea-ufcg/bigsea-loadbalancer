@@ -15,7 +15,7 @@ BigSea WP3 - LoadBalancer
 
 ## Overview
 
-The Load Balancer service is responsible to manage a specific subset off hosts based on a given heuristic according to the information in the configuration file.
+The Load Balancer service is responsible to manage a specific subset off hosts and decide the most effective placement of instances based on a given heuristic according to the information in the configuration file.
 
 
 

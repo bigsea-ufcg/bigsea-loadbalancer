@@ -10,5 +10,5 @@ class BaseHeuristic(object):
         pass
 
     @abc.abstractmethod
-    def execute(self, **kwargs):
+    def decision(self):
         pass

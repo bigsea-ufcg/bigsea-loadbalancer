@@ -1,12 +1,3 @@
-[openstack]
-username=<@username>
-password=<@password>
-user_domain_name=<@user_domain_name>
-project_name=<@project_name>
-project_domain_name=<@project_domain_name>
-auth_url=<@auth_url>
-
-
 [monitoring]
 username=<@username>
 password=<@password>
@@ -14,16 +5,27 @@ project_name=<@project_name>
 auth_url=<@auth_url>
 monasca_api_version=v2_0
 
-
-[infrastructure]
-hosts=<host>,<host2>
-teste=
-#List of hostnames or ips of servers that the loadbalancer will manage (separated by comma).
-
-
 [heuristic]
 # The filename for the module that is located in /loadbalancer/service/heuristic/
 # without .py extension
 module=<module_name>
 # The class name that is inside the given module, this class should implement BasicHeuristic
 class=<class_name>
+
+[infrastructure]
+# The user that have access to each host
+user=<username>
+#List of hostnames or ips of servers that the loadbalancer will manage (separated by comma).
+hosts=<host>,<host2>
+#The key used to access the hosts
+key=<key_path>
+#The type of IaaS provider on your infrastructure e.g OpenStack, OpenNebula
+provider=<provider_name>
+
+[openstack]
+username=<@username>
+password=<@password>
+user_domain_name=<@user_domain_name>
+project_name=<@project_name>
+project_domain_name=<@project_domain_name>
+auth_url=<@auth_url>

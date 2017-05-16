@@ -18,6 +18,7 @@ jsonpatch==1.15
 jsonpointer==1.10
 jsonschema==2.6.0
 keystoneauth1==2.19.0
+python-daemon
 lockfile==0.12.2
 MarkupSafe==1.0
 mock==2.0.0
@@ -46,7 +47,6 @@ prettytable==0.7.2
 pyinotify==0.9.6
 pyparsing==2.2.0
 python-cinderclient==2.0.1
-python-daemon==2.1.2
 python-dateutil==2.6.0
 python-glanceclient==2.6.0
 python-keystoneclient==3.10.0

@@ -1,4 +1,3 @@
-
 from keystoneauth1.identity import v3
 from keystoneauth1 import session
 from novaclient import client as nova_client
@@ -50,8 +49,8 @@ class OpenStackConnector(object):
             instances_ids.append(instance.id)
         return instances_ids
 
-    def hosts_free_resources(self, hosts):
-        free_usage = {}
+    def hosts_resources(self, hosts):
+        host_usages = {}
         nova = self.__get_nova_client()
         for host in hosts:
             for host_usage in nova.hosts.get(host):
@@ -64,9 +63,9 @@ class OpenStackConnector(object):
                     used_now = resource.copy()
                     used_now.pop('project')
                     used_now.pop('host')
-            free = {key: total[key] - used_now.get(key, 0) for key in total}
-            free_usage[host] = free
-        return free_usage
+            #free = {key: total[key] - used_now.get(key, 0) for key in total}
+            host_usages[host] = {'total': total, 'used_now': used_now}
+        return host_usages
 
     def live_migration(self, instance_id, new_host):
         nova = self.__get_nova_client()
