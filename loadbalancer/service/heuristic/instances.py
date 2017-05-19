@@ -30,14 +30,12 @@ class BalanceInstancesOS(BaseHeuristic):
                 host: {'value': metric['value'], 'instances': instances_info}
             })
 
-
         resource_info = self.openstack.hosts_resources(hosts)
         print resource_info
         return (metrics, resource_info)
 
     def decision(self):
         metrics, resource = self.collect_information()
-        #hosts_ percentage = self.
 
         evacuate_host, instances_count = self.__high_utilization_host(metrics)
 
@@ -67,12 +65,6 @@ class BalanceInstancesOS(BaseHeuristic):
                     break
 
         print(migrations)
-
-        # for instance in migrations:
-        #     print(self.openstack.live_migration(
-        #         instance, migrations[instance]
-        #     ))
-        return ""
 
     def __high_utilization_host(self, metrics):
         high_utilization_host = None

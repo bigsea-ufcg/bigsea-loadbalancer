@@ -61,6 +61,7 @@ def main():
 
         iaas_provider = config.get('infrastructure', 'provider')
         if iaas_provider == 'OpenStack':
+            kwargs['provider'] = iaas_provider
             kwargs['openstack'] = OpenStackConnector(config)
 
         heuristic_module = config.get('heuristic', 'module')
@@ -74,6 +75,7 @@ def main():
             time.sleep(1800)
 
     except Exception as e:
+        print e
         print(e.message)
         sys.exit(2)
 

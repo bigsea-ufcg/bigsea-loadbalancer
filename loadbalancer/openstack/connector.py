@@ -63,18 +63,28 @@ class OpenStackConnector(object):
                     used_now = resource.copy()
                     used_now.pop('project')
                     used_now.pop('host')
-            #free = {key: total[key] - used_now.get(key, 0) for key in total}
             host_usages[host] = {'total': total, 'used_now': used_now}
         return host_usages
 
-    def live_migration(self, instance_id, new_host):
+    def live_migration(self, migrations):
         nova = self.__get_nova_client()
-        instance = nova.servers.get(instance_id)
-        host = instance.__getattr__('OS-EXT-SRV-ATTR:host')
-        if host == new_host:
-            return "Impossible to execute migration to same host"
-        else:
-            instance.live_migrate(host=new_host)
-            return "Executing migration of instance %s from %s to %s" % (
-                instance_id, host, new_host
-            )
+        for instance_id in migrations:
+            instance = nova.servers.get(instance_id)
+            new_host = migrations[instance_id]
+            host = instance.__getattr__('OS-EXT-SRV-ATTR:host')
+            if host == new_host:
+                return "Impossible to execute migration to same host"
+            else:
+                instance.live_migrate(host=new_host)
+                print "Executing migration of instance %s from %s to %s" % (
+                    instance_id, host, new_host
+                )
+
+    def get_flavor_information(self, instances):
+        nova = self.__get_nova_client()
+        instances_flavors = {}
+        for instance_id in instances:
+            instance = nova.servers.get(instance_id)
+            flavor_id = instance.flavor['id']
+            instances_flavors[instance_id] = nova.flavors.get(flavor_id)._info
+        return instances_flavors
