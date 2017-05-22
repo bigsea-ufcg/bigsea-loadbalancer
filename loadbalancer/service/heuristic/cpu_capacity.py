@@ -63,6 +63,7 @@ class ProActiveCap(BaseHeuristic):
 
         if hosts == []:
             # No hosts overloaded
+            print "No hosts overloaded"
             pass
         else:
             migrations = {}
@@ -111,8 +112,8 @@ class ProActiveCap(BaseHeuristic):
                             continue
                         else:
                             break
-        print "Execute migrations"
-        self.openstack.live_migration(migrations)
+            print "Execute migrations"
+            self.openstack.live_migration(migrations)
 
     def _calculate_metrics(self, utilization, cap, flavor, instances):
         metrics = {}
