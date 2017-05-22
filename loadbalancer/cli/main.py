@@ -2,7 +2,9 @@ import sys
 
 from loadbalancer.openstack.connector import OpenStackConnector
 from loadbalancer.utils.monitoring import MonascaManager
+from loadbalancer.utils.logger import configure_logging, Log
 from loadbalancer.utils import validation
+
 
 import argparse
 import ConfigParser
@@ -48,30 +50,41 @@ def get_heuristic_class(module, class_name):
 def main():
 
     try:
+        logger = Log("main", "loadbalancer_main.log")
+        configure_logging()
         cmd = command_line_parser()
         args = validation.cmd(cmd.parse_args())
+        logger.log("Validating command line arguments")
 
         config = ConfigParser.RawConfigParser()
         if args.configuration:
             config.read(args.configuration)
         else:
             config.read('load_balancer.cfg')
+        logger.log("Reading configuration file")
 
         kwargs = {'monasca': MonascaManager(config), 'config': config}
 
         iaas_provider = config.get('infrastructure', 'provider')
+        logger.log("Identifying IaaS provider")
         if iaas_provider == 'OpenStack':
             kwargs['provider'] = iaas_provider
             kwargs['openstack'] = OpenStackConnector(config)
+            logger.log("Creating OpenStack Connector")
 
+        logger.log("Extracting Heuristic module and class")
         heuristic_module = config.get('heuristic', 'module')
         heuristic_name = config.get('heuristic', 'class')
         heuristic = get_heuristic_class(heuristic_module, heuristic_name)
+        logger.log("Loading Heuristic %s from module %s" %
+                   (heuristic_name, heuristic_module))
         heuristic_instance = heuristic(**kwargs)
+        logger.log("Created Heuristic")
 
-        print "Heuristic Created"
         while True:
+            logger.log("Heuristic %s making decision" % heuristic_name)
             heuristic_instance.decision()
+            logger.log("Sleeping for 1800 seconds")
             time.sleep(1800)
 
     except Exception as e:

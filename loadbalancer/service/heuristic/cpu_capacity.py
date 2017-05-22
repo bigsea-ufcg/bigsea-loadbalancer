@@ -1,18 +1,21 @@
 from loadbalancer.service.heuristic.base import BaseHeuristic
 from loadbalancer.utils.kvm import RemoteKvm
+from loadbalancer.utils.logger import configure_logging, Log
 
 
 class ProActiveCap(BaseHeuristic):
 
     def __init__(self, **kwargs):
+        self.logger = Log("ProActiveCap", "heuristic_ProActiveCap.log")
+        configure_logging()
         self.monasca = kwargs['monasca']
         self.kvm = RemoteKvm(kwargs['config'])
         if kwargs['provider'] == 'OpenStack':
             self.openstack = kwargs['openstack']
-        self.ratio = 1
+        self.ratio = 0.9 #Add as parameter
 
     def collect_information(self):
-        print "collect"
+        self.logger.log("Start to collect metrics")
         hosts = self.openstack.available_hosts()
 
         metrics = {}
@@ -23,15 +26,22 @@ class ProActiveCap(BaseHeuristic):
             metric = self.monasca.last_measurement(
                 'cpu.percent', {'hostname': hostname}
             )
+            self.logger.log("Collected cpu.percent metric from host %s" % hostname)
 
             instances_utilization = self.monasca.get_measurements_group(
                 'vm.cpu.utilization_norm_perc', 'resource_id',
                 hostname, host_instances
             )
+            self.logger.log(
+                "Collected vm.utilization metric from instances in host %s" %
+                hostname
+            )
 
             cpu_cap_percentage = self.kvm.get_percentage_cpu_cap(
                 host, host_instances
             )
+            self.logger.log("Collected cpu_cap from all instances in host %s" %
+                    hostname)
 
             instances_flavor = self.openstack.get_flavor_information(
                 host_instances
@@ -41,6 +51,7 @@ class ProActiveCap(BaseHeuristic):
                 instances_utilization, cpu_cap_percentage,
                 instances_flavor, host_instances
             )
+
             metrics.update({
                 host: {'cpu_perc': metric['value'],
                        'cap': host_used_cap,
@@ -49,11 +60,12 @@ class ProActiveCap(BaseHeuristic):
             })
 
         computes_resources = self.openstack.hosts_resources(hosts)
+        self.logger.log("Finished to collect metrics")
         return (metrics, computes_resources)
 
     def decision(self):
         metrics, resources = self.collect_information()
-        print "###########################################"
+
         print metrics
         print "==============="
         print resources
@@ -118,6 +130,9 @@ class ProActiveCap(BaseHeuristic):
     def _calculate_metrics(self, utilization, cap, flavor, instances):
         metrics = {}
         host_used_cap = 0
+        self.logger.log(
+            "Calculating consumption and used_capacity for each instance"
+        )
         for instance_id in instances:
             # TODO: update to use utilziation information from monasca
             # utilization[instance_id]

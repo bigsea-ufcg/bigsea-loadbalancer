@@ -1,3 +1,4 @@
+from loadbalancer.utils.logger import configure_logging, Log
 from monascaclient import client as monclient, ksclient
 
 import monascaclient.exc as exc
@@ -7,6 +8,8 @@ class MonascaManager:
 
     def __init__(self, configuration):
         self.configuration = configuration
+        self.logger = Log("Monasca", "monasca.log")
+        configure_logging()
 
     def get_measurements(self, metric_name, dimensions,
                          start_time='2014-01-01T00:00:00Z'):
@@ -27,6 +30,10 @@ class MonascaManager:
             return None
 
     def last_measurement(self, name, dimensions):
+        self.logger.log(
+            "Get last measurement for metric %s with dimensions %s" %
+            (name, str(dimensions))
+        )
         response = dimensions.copy()
         response['metric'] = name
         if self.get_measurements(name, dimensions) is None:
@@ -66,5 +73,5 @@ class MonascaManager:
             ks.monasca_url, token=ks.token,
             debug=False
         )
-
+        self.logger.log("Get Monasca Client")
         return monasca_client
