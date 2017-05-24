@@ -22,6 +22,7 @@ class RemoteKvm:
                         (instance_id, host))
         stdout = ssh.exec_command(virsh_command)[1].read()
         self.logger.log(stdout)
+        ssh.close()
         return int(stdout)
 
     def get_percentage_cpu_cap(self, host, instances):

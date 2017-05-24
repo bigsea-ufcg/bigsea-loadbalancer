@@ -73,6 +73,7 @@ def main():
             logger.log("Creating OpenStack Connector")
 
         logger.log("Extracting Heuristic module and class")
+        heuristic_period = float(config.get('heuristic', 'period'))
         heuristic_module = config.get('heuristic', 'module')
         heuristic_name = config.get('heuristic', 'class')
         heuristic = get_heuristic_class(heuristic_module, heuristic_name)
@@ -84,8 +85,8 @@ def main():
         while True:
             logger.log("Heuristic %s making decision" % heuristic_name)
             heuristic_instance.decision()
-            logger.log("Sleeping for 1800 seconds")
-            time.sleep(1800)
+            logger.log("Sleeping for %s seconds" % heuristic_period)
+            time.sleep(heuristic_period)
 
     except Exception as e:
         print e

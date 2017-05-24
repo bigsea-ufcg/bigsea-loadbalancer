@@ -4,7 +4,6 @@ from keystoneauth1 import session
 from novaclient import client as nova_client
 
 
-
 class OpenStackConnector(object):
 
     def __init__(self, configuration):
@@ -13,7 +12,6 @@ class OpenStackConnector(object):
         self.configuration = configuration
 
     def __get_nova_client(self):
-
         auth = v3.Password(
             username=self.configuration.get('openstack', 'username'),
             password=self.configuration.get('openstack', 'password'),
@@ -34,9 +32,15 @@ class OpenStackConnector(object):
         self.logger.log("Looking for available hosts")
         available_hosts = []
         nova = self.__get_nova_client()
-        infra_hosts = self.configuration.get(
+        infra_hostsnames = self.configuration.get(
             'infrastructure', 'hosts'
         ).split(',')
+
+        # NOTE: We need to split the full hostnames in our case because nova
+        # doesn't have this information and monasca use the full hostname in
+        # dimensions. Different hosts should have different names.
+        # e.g: compute1.mydomain.edu.br becomes compute1
+        infra_hosts = [host.split('.')[0] for host in infra_hostsnames]
 
         for host in nova.hosts.list():
             if host.host_name in infra_hosts:
@@ -79,13 +83,14 @@ class OpenStackConnector(object):
 
     def live_migration(self, migrations):
         nova = self.__get_nova_client()
+        performed_migrations = {}
         for instance_id in migrations:
             instance = nova.servers.get(instance_id)
             new_host = migrations[instance_id]
             host = instance.__getattr__('OS-EXT-SRV-ATTR:host')
             if host == new_host:
                 self.logger.log(
-                    "Impossible to execute migration of instance %s to same host" %
+                    "Can't execute migration of instance %s to same host" %
                     instance_id
                 )
             else:
@@ -95,7 +100,8 @@ class OpenStackConnector(object):
                 )
                 instance.live_migrate(host=new_host)
                 self.logger.log("Finished migration")
-
+                performed_migrations[instance_id] = new_host
+        return performed_migrations
 
     def get_flavor_information(self, instances):
         nova = self.__get_nova_client()

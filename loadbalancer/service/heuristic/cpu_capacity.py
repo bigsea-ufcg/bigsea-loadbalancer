@@ -2,6 +2,9 @@ from loadbalancer.service.heuristic.base import BaseHeuristic
 from loadbalancer.utils.kvm import RemoteKvm
 from loadbalancer.utils.logger import configure_logging, Log
 
+import json
+import os.path
+
 
 class ProActiveCap(BaseHeuristic):
 
@@ -12,7 +15,10 @@ class ProActiveCap(BaseHeuristic):
         self.kvm = RemoteKvm(kwargs['config'])
         if kwargs['provider'] == 'OpenStack':
             self.openstack = kwargs['openstack']
-        self.ratio = 0.9 #Add as parameter
+        self.ratio = float(kwargs['config'].get('heuristic', 'cpu_ratio'))
+        self.infra_hostsnames = kwargs['config'].get(
+            'infrastructure', 'hosts'
+        ).split(',')
 
     def collect_information(self):
         self.logger.log("Start to collect metrics")
@@ -20,13 +26,16 @@ class ProActiveCap(BaseHeuristic):
 
         metrics = {}
         for host in hosts:
-            hostname = host + '.lsd.ufcg.edu.br'
+            hostname = [name for name in self.infra_hostsnames if host in name]
+            hostname = hostname[0]
             host_instances = self.openstack.get_host_instances(host)
 
             metric = self.monasca.last_measurement(
                 'cpu.percent', {'hostname': hostname}
             )
-            self.logger.log("Collected cpu.percent metric from host %s" % hostname)
+            self.logger.log(
+                "Collected cpu.percent metric from host %s" % hostname
+            )
 
             instances_utilization = self.monasca.get_measurements_group(
                 'vm.cpu.utilization_norm_perc', 'resource_id',
@@ -40,21 +49,23 @@ class ProActiveCap(BaseHeuristic):
             cpu_cap_percentage = self.kvm.get_percentage_cpu_cap(
                 host, host_instances
             )
-            self.logger.log("Collected cpu_cap from all instances in host %s" %
-                    hostname)
+            self.logger.log(
+                "Collected cpu_cap from all instances in host %s" % hostname
+            )
 
             instances_flavor = self.openstack.get_flavor_information(
                 host_instances
             )
 
-            instances_metrics, host_used_cap = self._calculate_metrics(
+            instances_metrics, consumption, cap = self._calculate_metrics(
                 instances_utilization, cpu_cap_percentage,
                 instances_flavor, host_instances
             )
 
             metrics.update({
                 host: {'cpu_perc': metric['value'],
-                       'cap': host_used_cap,
+                       'consumption': consumption,
+                       'cap': cap,
                        'instances': instances_metrics
                        },
             })
@@ -65,71 +76,81 @@ class ProActiveCap(BaseHeuristic):
 
     def decision(self):
         metrics, resources = self.collect_information()
-
-        print metrics
-        print "==============="
-        print resources
-        print "###########################################"
+        self.logger.log("Metrics")
+        self.logger.log(str(metrics))
+        self.logger.log("Resource Information")
+        self.logger.log(str(resources))
         updated_resources = resources.copy()
         hosts = self._get_overloaded_hosts(metrics, resources)
+        last_migrations = self._get_latest_migrations()
+        migrations = {}
 
         if hosts == []:
-            # No hosts overloaded
-            print "No hosts overloaded"
-            pass
+            self.logger.log("No hosts overloaded")
+            self._write_migrations({})
+        elif set(hosts) == set(self.openstack.available_hosts()):
+            self.logger.log(
+                "Overloaded hosts %s are equal to available hosts" % hosts
+            )
+            self.logger.log("No migrations can be done")
+            self._write_migrations({})
         else:
-            migrations = {}
+            self.logger.log("Overloaded hosts %s" % str(hosts))
+
             for host in hosts:
+
                 ignore_instances = []
                 num_instances = len(metrics[host]['instances'])
+
                 while(len(ignore_instances) != num_instances):
+
                     instance = self._select_instance(
-                        metrics[host]['instances'], ignore_instances
+                        metrics[host]['instances'], ignore_instances,
+                        last_migrations.keys()
                     )
+
                     instance_info = metrics[host]['instances'][instance]
-                    vcpus = instance_info['vcpus']
 
                     other_hosts_resources = updated_resources.copy()
+
                     del other_hosts_resources[host]
+
                     new_host = self._get_less_loaded_hosts(
-                        other_hosts_resources, vcpus
+                        other_hosts_resources, instance_info
                     )
-                    print new_host
                     if new_host is None:
+                        self.logger.log(
+                            "No host found to migrate instance %s" % instance
+                        )
                         ignore_instances.append(instance)
                     else:
                         migrations.update({instance: new_host})
-                        print migrations
                         ignore_instances.append(instance)
 
                         # Update Resources
-                        updated_resources[new_host]['used_now']['cpu'] += vcpus
-                        updated_resources[host]['used_now']['cpu'] -= vcpus
-                        # Add update for disk_gb and memory_mb
+                        updated_resources = self._reallocate_resources(
+                            updated_resources, host, new_host, instance_info
+                        )
 
                         # Update Metrics
-                        del metrics[host]['instances'][instance]
-                        metrics[new_host]['instances'].update({
-                            instance: instance_info
-                        })
-
-                        metrics[new_host]['cap'] += (
-                            instance_info['used_capacity']
-                        )
-                        metrics[host]['cap'] -= instance_info['used_capacity']
+                        metrics = self._metrics_update(metrics, host, new_host,
+                                                       instance, instance_info)
 
                         if self._host_is_loaded(
-                                host, updated_resources, metrics
+                            host, updated_resources, metrics
                         ):
                             continue
                         else:
                             break
-            print "Execute migrations"
-            self.openstack.live_migration(migrations)
+            self.logger.log("Migrations")
+            self.logger.log(str(migrations))
+            performed_migrations = self.openstack.live_migration(migrations)
+            self._write_migrations(performed_migrations)
 
     def _calculate_metrics(self, utilization, cap, flavor, instances):
         metrics = {}
-        host_used_cap = 0
+        host_consumption = 0
+        host_cap = 0
         self.logger.log(
             "Calculating consumption and used_capacity for each instance"
         )
@@ -137,52 +158,73 @@ class ProActiveCap(BaseHeuristic):
             # TODO: update to use utilziation information from monasca
             # utilization[instance_id]
             used_capacity = flavor[instance_id]['vcpus'] * cap[instance_id]
-            host_used_cap += used_capacity
+            consumption = used_capacity * 1  # utilization[instance_id]
+            host_consumption += consumption
+            host_cap += used_capacity
             metrics[instance_id] = {'vcpus': flavor[instance_id]['vcpus'],
+                                    'memory': flavor[instance_id]['ram'],
+                                    'disk': flavor[instance_id]['disk'],
                                     'cap': cap[instance_id],
-                                    'consumption': used_capacity * 1,
+                                    'consumption': consumption,
                                     'used_capacity': used_capacity}
-        return metrics, host_used_cap
+        return metrics, host_consumption, host_cap
 
     def _get_overloaded_hosts(self, metrics, resource_info):
         overloaded_hosts = []
         for host in resource_info:
             num_cores = resource_info[host]['total']['cpu']
-            total_used_cap = (
+            total_consumption = (
+                metrics[host]['consumption'] / float(num_cores)
+            )
+            total_cap = (
                 metrics[host]['cap'] / float(num_cores)
             )
-            print "get overloaded host"
-            print total_used_cap
-            print self.ratio
-            if total_used_cap > self.ratio:
+            if total_consumption > self.ratio:
                 overloaded_hosts.append(host)
+            if total_cap > self.ratio and host not in overloaded_hosts:
+                overloaded_hosts.append(host)
+
         return overloaded_hosts
 
-    def _select_instance(self, instances, ignore_instances):
+    def _select_instance(self, instances_host, ignored_instances, migrated):
+        self.logger.log("Select Instance to migrate")
+        print instances_host
         selected = None
+        instances = list(set(instances_host.keys()) - set(migrated))
+        instances = list(set(instances) - set(ignored_instances))
+        if instances == []:
+            instances = instances_host
+        print instances
         for instance_id in instances:
-            if instance_id in ignore_instances:
+            if instance_id in ignored_instances:
                 continue
             else:
                 if selected is None:
                     selected = instance_id
                 else:
-                    if instances[instance_id] > instances[selected]:
+                    consumption = instances_host[instance_id]['consumption']
+                    if consumption > instances_host[selected]['consumption']:
                         selected = instance_id
         return selected
 
-    def _get_less_loaded_hosts(self, resource_info, vcpus):
-        # update to recive all flavor information and validate that the host
-        # can recive the instance
+    def _get_less_loaded_hosts(self, resource_info, instance_info):
         selected_host = None
         selected_host_cap = None
         for host in resource_info:
             num_cores = resource_info[host]['total']['cpu']
             cores_in_use = resource_info[host]['used_now']['cpu']
             future_total_cap = (
-                (cores_in_use + vcpus) / float(num_cores)
+                (cores_in_use + instance_info['vcpus']) / float(num_cores)
             )
-            if future_total_cap < self.ratio:
+
+            memory_free = (resource_info[host]['total']['memory_mb'] >=
+                           resource_info[host]['used_now']['memory_mb'] +
+                           instance_info['memory'])
+            disk_free = (resource_info[host]['total']['disk_gb'] >=
+                         resource_info[host]['used_now']['disk_gb'] +
+                         instance_info['disk'])
+
+            if future_total_cap <= self.ratio and memory_free and disk_free:
                 if selected_host is None:
                     selected_host = host
                     selected_host_cap = future_total_cap
@@ -197,9 +239,40 @@ class ProActiveCap(BaseHeuristic):
     def _host_is_loaded(self, host, resource_info, metrics):
         num_cores = resource_info[host]['total']['cpu']
         total_used_cap = (
-            metrics[host]['cap'] / float(num_cores)
+            metrics[host]['consumption'] / float(num_cores)
         )
         if total_used_cap > self.ratio:
             return True
         else:
             return False
+
+    def _reallocate_resources(self, resources, old_host, new_host,
+                              instance_info):
+        resources[new_host]['used_now']['cpu'] += instance_info['vcpus']
+        resources[old_host]['used_now']['cpu'] -= instance_info['vcpus']
+        resources[new_host]['used_now']['memory_mb'] += instance_info['memory']
+        resources[old_host]['used_now']['memory_mb'] -= instance_info['memory']
+        resources[new_host]['used_now']['disk_gb'] += instance_info['disk']
+        resources[old_host]['used_now']['disk_gb'] -= instance_info['disk']
+        return resources
+
+    def _metrics_update(self, metrics, old_host, new_host, instance_id,
+                        instance_info):
+        del metrics[old_host]['instances'][instance_id]
+        metrics[new_host]['instances'].update({instance_id: instance_info})
+        metrics[new_host]['consumption'] += instance_info['consumption']
+        metrics[old_host]['consumption'] -= instance_info['consumption']
+        return metrics
+
+    def _get_latest_migrations(self):
+        self.logger.log("Reading latest migrations")
+        if os.path.isfile('migrations.json'):
+            with open('migrations.json') as json_file:
+                return json.load(json_file)
+        else:
+            return {}
+
+    def _write_migrations(self, migrations):
+        self.logger.log("Writting migrations")
+        with open('migrations.json', 'w') as outfile:
+            json.dump(migrations, outfile)

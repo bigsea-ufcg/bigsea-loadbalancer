@@ -21,4 +21,4 @@ class Log:
 
 
 def configure_logging():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
