@@ -2,6 +2,7 @@ from loadbalancer.utils.logger import configure_logging, Log
 from monascaclient import client as monclient, ksclient
 
 import monascaclient.exc as exc
+import datetime
 
 
 class MonascaManager:
@@ -12,14 +13,17 @@ class MonascaManager:
         configure_logging()
 
     def get_measurements(self, metric_name, dimensions,
-                         start_time='2014-01-01T00:00:00Z'):
+                         start_time='-10'):
+        # NOTE: start_time using negative number represents previous X minutes
         measurements = []
         try:
+            starttime = (datetime.datetime.utcnow() + datetime.timedelta(
+                minutes=int(start_time))).strftime('%Y-%m-%dT%H:%M:%SZ')
             monasca_client = self.__get_monasca_client()
             dimensions = dimensions
             measurements = monasca_client.metrics.list_measurements(
                 name=metric_name, dimensions=dimensions,
-                start_time=start_time, debug=False)
+                start_time=starttime, debug=False)
         except exc.HTTPException as httpex:
             print httpex.message
         except Exception as ex:
