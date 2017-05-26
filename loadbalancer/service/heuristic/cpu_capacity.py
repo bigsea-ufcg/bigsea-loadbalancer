@@ -16,6 +16,9 @@ class ProActiveCap(BaseHeuristic):
         if kwargs['provider'] == 'OpenStack':
             self.openstack = kwargs['openstack']
         self.ratio = float(kwargs['config'].get('heuristic', 'cpu_ratio'))
+        self.wait_rounds = int(
+            kwargs['config'].get('heuristic', 'wait_rounds')
+        )
         self.infra_hostsnames = kwargs['config'].get(
             'infrastructure', 'hosts'
         ).split(',')
@@ -82,7 +85,7 @@ class ProActiveCap(BaseHeuristic):
         self.logger.log(str(resources))
         updated_resources = resources.copy()
         hosts = self._get_overloaded_hosts(metrics, resources)
-        last_migrations = self._get_latest_migrations()
+        waitting = self._get_waitting_instances()
         migrations = {}
 
         if hosts == []:
@@ -106,7 +109,7 @@ class ProActiveCap(BaseHeuristic):
 
                     instance = self._select_instance(
                         metrics[host]['instances'], ignore_instances,
-                        last_migrations.keys()
+                        waitting.keys()
                     )
 
                     instance_info = metrics[host]['instances'][instance]
@@ -146,6 +149,7 @@ class ProActiveCap(BaseHeuristic):
             self.logger.log(str(migrations))
             performed_migrations = self.openstack.live_migration(migrations)
             self._write_migrations(performed_migrations)
+            self._write_waitting_instances(performed_migrations, waitting)
 
     def _calculate_metrics(self, utilization, cap, flavor, instances):
         metrics = {}
@@ -188,13 +192,12 @@ class ProActiveCap(BaseHeuristic):
         ]
         return ord_ovld_hosts
 
-    def _select_instance(self, instances_host, ignored_instances, migrated):
+    def _select_instance(self, instances_host, ignored_instances,
+                         waitting_instances):
         print instances_host
         selected = None
-        instances = list(set(instances_host.keys()) - set(migrated))
+        instances = list(set(instances_host.keys()) - set(waitting_instances))
         instances = list(set(instances) - set(ignored_instances))
-        if instances == []:
-            instances = instances_host
         for instance_id in instances:
             if instance_id in ignored_instances:
                 continue
@@ -208,7 +211,7 @@ class ProActiveCap(BaseHeuristic):
         if selected is not None:
             self.logger.log("Selected instance %s to migrate" % selected)
         else:
-            self.logger.log()
+            self.logger.log("No instances could be selected do migrate")
         return selected
 
     def _get_less_loaded_hosts(self, resource_info, instance_info):
@@ -275,6 +278,27 @@ class ProActiveCap(BaseHeuristic):
                 return json.load(json_file)
         else:
             return {}
+
+    def _get_waitting_instances(self):
+        self.logger.log("")
+        if os.path.isfile('waitting_instances.json'):
+            with open('waitting_instances.json') as json_file:
+                return json.load(json_file)
+        else:
+            return {}
+
+    def _write_waitting_instances(self, migrations, waitting):
+        new_waitting = waitting.copy()
+        for instance in waitting:
+            waitting_rounds = waitting[instance] + 1
+            if waitting_rounds >= self.wait_rounds:
+                del new_waitting[instance]
+            else:
+                new_waitting[instance] = waitting_rounds
+        for instance in migrations:
+            new_waitting[instance] = 0
+        with open('waitting_instances.json', 'wa') as output:
+            json.dump(new_waitting, output)
 
     def _write_migrations(self, migrations):
         self.logger.log("Writting migrations")
