@@ -180,21 +180,21 @@ class ProActiveCap(BaseHeuristic):
                 metrics[host]['cap'] / float(num_cores)
             )
             if total_consumption > self.ratio:
-                overloaded_hosts.append(host)
+                overloaded_hosts.append((host, total_cap))
             if total_cap > self.ratio and host not in overloaded_hosts:
-                overloaded_hosts.append(host)
-
-        return overloaded_hosts
+                overloaded_hosts.append((host, total_cap))
+        ord_ovld_hosts = [
+            e[0] for e in sorted(overloaded_hosts, key=lambda tup: tup[1])
+        ]
+        return ord_ovld_hosts
 
     def _select_instance(self, instances_host, ignored_instances, migrated):
-        self.logger.log("Select Instance to migrate")
         print instances_host
         selected = None
         instances = list(set(instances_host.keys()) - set(migrated))
         instances = list(set(instances) - set(ignored_instances))
         if instances == []:
             instances = instances_host
-        print instances
         for instance_id in instances:
             if instance_id in ignored_instances:
                 continue
@@ -205,6 +205,10 @@ class ProActiveCap(BaseHeuristic):
                     consumption = instances_host[instance_id]['consumption']
                     if consumption > instances_host[selected]['consumption']:
                         selected = instance_id
+        if selected is not None:
+            self.logger.log("Selected instance %s to migrate" % selected)
+        else:
+            self.logger.log()
         return selected
 
     def _get_less_loaded_hosts(self, resource_info, instance_info):

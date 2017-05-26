@@ -94,13 +94,17 @@ class OpenStackConnector(object):
                     instance_id
                 )
             else:
-                self.logger.log(
-                    "Executing migration of instance %s from %s to %s" %
-                    (instance_id, host, new_host)
-                )
-                instance.live_migrate(host=new_host)
-                self.logger.log("Finished migration")
-                performed_migrations[instance_id] = new_host
+                try:
+                    self.logger.log(
+                        "Executing migration of instance %s from %s to %s" %
+                        (instance_id, host, new_host)
+                    )
+                    instance.live_migrate(host=new_host)
+                    self.logger.log("Finished migration")
+                    performed_migrations[instance_id] = new_host
+                except Exception as e:
+                    self.logger.log(e.message)
+
         return performed_migrations
 
     def get_flavor_information(self, instances):
