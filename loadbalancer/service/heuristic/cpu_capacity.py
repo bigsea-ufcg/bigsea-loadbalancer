@@ -87,7 +87,6 @@ class ProActiveCap(BaseHeuristic):
         hosts = self._get_overloaded_hosts(metrics, resources)
         waitting = self._get_waitting_instances()
         migrations = {}
-
         if hosts == []:
             self.logger.log("No hosts overloaded")
             self._write_migrations({})
@@ -174,8 +173,10 @@ class ProActiveCap(BaseHeuristic):
         return metrics, host_consumption, host_cap
 
     def _get_overloaded_hosts(self, metrics, resource_info):
+        self.logger.log("Looking for overloaded hosts")
         overloaded_hosts = []
         for host in resource_info:
+            self.logger.log(host)
             num_cores = resource_info[host]['total']['cpu']
             total_consumption = (
                 metrics[host]['consumption'] / float(num_cores)
@@ -183,13 +184,20 @@ class ProActiveCap(BaseHeuristic):
             total_cap = (
                 metrics[host]['cap'] / float(num_cores)
             )
-            if total_consumption > self.ratio:
+            self.logger.log(
+                ("host %s | consp %s | cap %s" %
+                 (host, total_consumption, total_cap))
+            )
+            if total_consumption > self.ratio and host not in overloaded_hosts:
                 overloaded_hosts.append((host, total_cap))
-            if total_cap > self.ratio and host not in overloaded_hosts:
-                overloaded_hosts.append((host, total_cap))
+            else:
+                if total_cap > self.ratio and host not in overloaded_hosts:
+                    overloaded_hosts.append((host, total_cap))
+        self.logger.log(str(overloaded_hosts))
         ord_ovld_hosts = [
             e[0] for e in sorted(overloaded_hosts, key=lambda tup: tup[1])
         ]
+        self.logger.log(str(ord_ovld_hosts))
         return ord_ovld_hosts
 
     def _select_instance(self, instances_host, ignored_instances,
