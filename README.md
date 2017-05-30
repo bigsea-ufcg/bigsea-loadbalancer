@@ -17,7 +17,25 @@ BigSea WP3 - LoadBalancer
 
 The Load Balancer service is responsible to manage a specific subset off hosts and decide the most effective placement of instances based on a given heuristic according to the information in the configuration file.
 
+## Heuristics
 
+The heuristics are responsible to periodically decide the most effective placement of instances in the hosts. You can write your own heristics, just follow the steps in [Creating a Heuristic](#creating-a-heuristic)
+Below we list all available heuristics that we have in our repository.
+
+
+##### List of Available Heuristics
+
+- [ProActiveCap](loadbalancer/service/heuristic/doc/cpu_capacity.md)
+
+
+#### Creating a Heuristic
+
+    1. Create a python module file in `loadbalancer/servie/heuristic` directory
+    2. In the module file create a class that inherits `BaseHeuristic` class from
+        `loadbalancer/servie/heuristic/base.py`
+    3. You must override collect_information and execute methods in your class.
+
+**Note:** Remember to update your configuration file with the heuristic you want to use.
 
 ## Installation
 
@@ -45,15 +63,6 @@ Make sure you have fill up all fields before run.
 
 
 ```
-[openstack]
-username=<@username>
-password=<@password>
-user_domain_name=<@user_domain_name>
-project_name=<@project_name>
-project_domain_name=<@project_domain_name>
-auth_url=<@auth_url>
-
-
 [monitoring]
 username=<@username>
 password=<@password>
@@ -61,38 +70,34 @@ project_name=<@project_name>
 auth_url=<@auth_url>
 monasca_api_version=v2_0
 
-
-[infrastructure]
-hosts=<host>,<host2>
-# List of hostnames or ips of servers that the loadbalancer will manage (separated by comma).
-
-
 [heuristic]
 # The filename for the module that is located in /loadbalancer/service/heuristic/
 # without .py extension
 module=<module_name>
 # The class name that is inside the given module, this class should implement BasicHeuristic
 class=<class_name>
+#Number of seconds before execute the heuristic again
+period=<value>
+
+[infrastructure]
+# The user that have access to each host
+user=<username>
+#List of full hostnames of servers that the loadbalancer will manage (separated by comma).
+#e.g compute1.mylab.edu.br
+hosts=<host>,<host2>
+#The key used to access the hosts
+key=<key_path>
+#The type of IaaS provider on your infrastructure e.g OpenStack, OpenNebula
+provider=<provider_name>
+
+[openstack]
+username=<@username>
+password=<@password>
+user_domain_name=<@user_domain_name>
+project_name=<@project_name>
+project_domain_name=<@project_domain_name>
+auth_url=<@auth_url>
 ```
-
-## Heuristics
-
-The heuristics are responsible to periodically decide the most effective placement of instances in the hosts. You can write your own heristics, just follow the steps in [Creating a Heuristic](#creating-a-heuristic)
-
-
-##### List of Available Heuristics
-
-- **BalanceInstances:** Balance the number off instances between all hosts in configuration
-
-#### Creating a Heuristic
-
-    1. Create a python module file in `loadbalancer/servie/heuristic` directory
-    2. In the module file create a class that inherits `BaseHeuristic` class from
-        `loadbalancer/servie/heuristic/base.py`
-    3. You must override collect_information and execute in your class.
-
-**Note:** Remember to update your configuration file with the heuristic you want to use.
-
 
 ## Running the LoadBalancer
 
