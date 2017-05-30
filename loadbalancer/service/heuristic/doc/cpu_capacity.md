@@ -17,8 +17,8 @@ A host is considered overloaded when the total consumption or total used capacit
 
 ## Parameters
 
-- cpu_ratio: (Float) The ratio of number of cpus cores to take in consideration if the hosts are overloaded.
-- wait_rounds: (Integer) Number of executions of the heuristic that each instance has to wait before be migrated again.
+- `cpu_ratio`: (Float) The ratio of number of cpus cores to take in consideration if the hosts are overloaded.
+- `wait_rounds`: (Integer) Number of executions of the heuristic that each instance has to wait before be migrated again.
 
 
 ## Algorithm
@@ -88,8 +88,6 @@ project_name=<@project_name>
 project_domain_name=<@project_domain_name>
 auth_url=<@auth_url>
 ```
-
-
 
 ## Dependencies
 
