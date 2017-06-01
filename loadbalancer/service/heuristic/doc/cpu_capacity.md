@@ -1,27 +1,45 @@
-ProActiveCap Heuristic
-======================
+ProactiveCPUCap Heuristic
+=========================
 
 #### Table of Contents
 - [Description](#description)
-- [Parameters](#parameters)
+    - [Parameters](#parameters)
+    - [Scenarios](#scenarios)
 - [Algorithm](#algorithm)
 - [Configuration](#configuration)
-    - [Example of configuration file](#example-of-configuration-file)
+    - [Example of heuristic section in configuration file](#example-of-heuristic-section-in-configuration-file)
 - [Dependencies](#dependencies)
 
 
-## Description
+Description
+-----------
 
 This heuristic aims to balance the hosts that are overloaded, by migrating the instances that are responsible for the increased utilization in the hosts.
-A host is considered overloaded when the total consumption or total used capacity of instances is greater than the provided `cpu_ratio`.
+A host is considered overloaded when the host total consumption or total used capacity is greater than the provided `cpu_ratio`.
+The total consumption and total used capacity for each host are given by the following formulas:
 
-## Parameters
+```
+# Sum of the consumption of each VM on the host
+total_consumption = \sum_{i=1}^{n}(vcpus_i \times %cap_i \times %CPU_i)
+# Sum of the used capacity of each VM on the host
+total_used_capacity = \sum_{i=1}^{n}(vcpus_i \times %cap_i)
+```
+
+Below we list the parameters that the ProactiveCPUCap use and some scenarios results
+
+### Parameters
 
 - `cpu_ratio`: (Float) The ratio of number of cpus cores to take in consideration if the hosts are overloaded.
 - `wait_rounds`: (Integer) Number of executions of the heuristic that each instance has to wait before be migrated again.
 
 
-## Algorithm
+### Scenarios
+
+<Add scenarios>
+
+
+Algorithm
+---------
 
 ```
 1. Select all hosts that are overloaded
@@ -35,32 +53,26 @@ A host is considered overloaded when the total consumption or total used capacit
 ```
 
 
-## Configuration
+Configuration
+-------------
 
 To configure this heuristic you need to add two parameters in the `heuristic` section in the configuration file, thoose parameters are:
 `cpu_ratio`and `wait_rounds`.
 
 You can find an example of configuration file for this heuristic [here](../../../../examples/load_balancer_proactivecap.cfg).
 
-#### Example of configuration file
+### Example of heuristic section in configuration file
 
 `load_balancer_proactivecap.cfg`
 
 
 ```
-[monitoring]
-username=<@username>
-password=<@password>
-project_name=<@project_name>
-auth_url=<@auth_url>
-monasca_api_version=v2_0
-
 [heuristic]
 # The filename for the module that is located in /loadbalancer/service/heuristic/
 # without .py extension
 module=cpu_capacity
 # The class name that is inside the given module, this class should implement BasicHeuristic
-class=ProActiveCap
+class=ProactiveCPUCap
 #Number of seconds before execute the heuristic again
 period=600
 # A float value that represents the ratio o number of cores in the hosts.
@@ -68,28 +80,10 @@ cpu_ratio=1
 # An integer that represent the number of rounds that a instance need to wait before be migrated again
 # Each round represents an execution of the loadbalancer
 wait_rounds=1
-
-[infrastructure]
-# The user that have access to each host
-user=<username>
-#List of full hostnames of servers that the loadbalancer will manage (separated by comma).
-#e.g compute1.mylab.edu.br
-hosts=<host>,<host2>
-#The key used to access the hosts
-key=<key_path>
-#The type of IaaS provider on your infrastructure e.g OpenStack, OpenNebula
-provider=<provider_name>
-
-[openstack]
-username=<@username>
-password=<@password>
-user_domain_name=<@user_domain_name>
-project_name=<@project_name>
-project_domain_name=<@project_domain_name>
-auth_url=<@auth_url>
 ```
 
-## Dependencies
+Dependencies
+------------
 
 - *Monasca*
 In your Monasca you should ensure that you have the following metrics:
@@ -97,4 +91,4 @@ In your Monasca you should ensure that you have the following metrics:
 -`vm.cpu.utilization_norm_perc`: Informs the normalized cpu utilization percentage for instances in the hosts
 
 - *Hypervisor KVM*
-Your hosts should provide use KVM as hypervisor to allow the collection of the capacity of the instances through the `virsh` command.
+Your hosts should provide use KVM as hypervisor to allow the collection of the capacity of the instances through the `virsh` command through ssh connection.

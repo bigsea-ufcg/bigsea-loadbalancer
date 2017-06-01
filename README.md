@@ -49,7 +49,7 @@ Below we list all available heuristics that we have in our repository.
 
 #### List of Available Heuristics
 
-- [ProActiveCap](loadbalancer/service/heuristic/doc/cpu_capacity.md)
+- [ProactiveCPUCap](loadbalancer/service/heuristic/doc/cpu_capacity.md)
 
 
 ### Creating a Heuristic

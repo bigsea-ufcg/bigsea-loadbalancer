@@ -6,7 +6,7 @@ import json
 import os.path
 
 
-class ProActiveCap(BaseHeuristic):
+class ProactiveCPUCap(BaseHeuristic):
 
     def __init__(self, **kwargs):
         self.logger = Log("ProActiveCap", "heuristic_ProActiveCap.log")
