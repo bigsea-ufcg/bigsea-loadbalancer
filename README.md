@@ -125,7 +125,7 @@ Limitations
 -----------
 
 * Only support OpenStack Infrastructure
-* Nova Live Migrations only considers only *shared storage-based live migrations* (We don't take in consideration the migration cost)
+* Nova Live Migrations considers only *shared storage-based live migrations* (We don't take in consideration the migration cost)
 
 
 Running the LoadBalancer
