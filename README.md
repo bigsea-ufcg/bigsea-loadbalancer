@@ -4,60 +4,82 @@ BigSea WP3 - LoadBalancer
 #### Table of Contents
 
 - [Overview](#overview)
+    - [Architecture](#architecture)
+- [Heuristics](#heuristics)
+    - [Creating a Heuristic](#creating-a-heuristic)
 - [Installation](#installation)
 - [Configuration](#configuration)
     - [Example of configuration file](#example-of-configuration-file)
-- [Heuristics](#heuristics)
-    - [Creating a Heuristic](#creating-a-heuristic)
 - [Running the LoadBalancer](#running-the-loadbalancer)
 
 
 
-## Overview
+Overview
+--------
 
-The Load Balancer service is responsible to manage a specific subset off hosts and decide the most effective placement of instances based on a given heuristic according to the information in the configuration file.
+The Load Balancer service is responsible for managing a specific subset of hosts, where VM's are running applications,
+and reallocate VM's that are on overloaded hosts, the decision is based on the heuristic that is in the configuration file.
 
-## Heuristics
 
-The heuristics are responsible to periodically decide the most effective placement of instances in the hosts. You can write your own heristics, just follow the steps in [Creating a Heuristic](#creating-a-heuristic)
+### Architecture
+
+The LoadBalancer need to access to Nova and Monasca in your Cloud Infrastructure, sometime it may require ssh access to hosts to perform actions
+(e.g. discover VM's CPU capacity)
+
+<Image>
+
+
+### Dependencies
+
+To have your Load Balancer working properly you need to ensure that it has access to following components in your Infrastructure:
+
+* OpenStack Compute Service - *Nova* (with admin privileges)
+* OpenStack Monitoring Service - *Monasca*
+* Infrastructure Hosts (KVM Hypervisor)
+
+
+Heuristics
+----------
+
+The heuristics are responsible to periodically verify wich hosts are overloaded, taking actions to reallocate VM's of these hosts
+to others, trying to make them less overloaded than before when possible.
+You can write your own heristics, just follow the steps in [Creating a Heuristic](#creating-a-heuristic)
 Below we list all available heuristics that we have in our repository.
 
 
-##### List of Available Heuristics
+#### List of Available Heuristics
 
 - [ProActiveCap](loadbalancer/service/heuristic/doc/cpu_capacity.md)
 
 
-#### Creating a Heuristic
+### Creating a Heuristic
 
-    1. Create a python module file in `loadbalancer/servie/heuristic` directory
-    2. In the module file create a class that inherits `BaseHeuristic` class from
-        `loadbalancer/servie/heuristic/base.py`
-    3. You must override collect_information and execute methods in your class.
+1. Create a python module file in `loadbalancer/servie/heuristic` directory
+2. In the module file create a class that inherits `BaseHeuristic` class from `loadbalancer/servie/heuristic/base.py`
+3. You must override collect_information and execute methods in your class.
 
-**Note:** Remember to update your configuration file with the heuristic you want to use.
+**Note:** Remember to update the `heuristic` section in your configuration file with the heuristic you want to use.
 
-## Installation
 
-#### Steps
+Installation
+------------
+
+### Steps
 
     $ git clone https://github.com/bigsea-ufcg/bigsea-loadbalancer.git
     $ cd bigsea-loadbalancer/
     $ pip install -r requirements.txt
 
 
-## Configuration
+Configuration
+-------------
 
 A configuration file is required to run the loadbalancer. You can find a template in the main directory called
 `loadbalancer.cfg.template`, rename the template to `loadbalancer.cfg` or any other name you want.
 Make sure you have fill up all fields before run.
 
-#### Create your configuration file
 
-    $ mv loadbalancer.cfg.tempalte configuration.cfg
-    $ mv loadbalancer.cfg.tempalte loadbalancer.cfg
-
-#### Example of configuration file
+### Example of configuration file
 
 `loadbalancer.cfg.template`
 
@@ -99,15 +121,23 @@ project_domain_name=<@project_domain_name>
 auth_url=<@auth_url>
 ```
 
-## Running the LoadBalancer
+Limitations
+-----------
+
+* Only support OpenStack Infrastructure
+* Nova Live Migrations only considers only *shared storage-based live migrations* (We don't take in consideration the migration cost)
+
+
+Running the LoadBalancer
+------------------------
 
     $ export PYTHONPATH=$PYTHONPATH":/path/to/bigsea-loadbalancer"
     $ cd loadbalancer/
 
-##### Default configuration file
+#### Default configuration file
 
     $ python loadbalancer/cli/main.py
 
-##### Especific configuration file
+#### Especific configuration file
 
-    $ python loadbalancer/cli/main.py -conf my_configuration.cfg
+    $ python loadbalancer/cli/main.py -conf load_balancer.cfg
