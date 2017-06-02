@@ -18,12 +18,16 @@ This heuristic aims to balance the hosts that are overloaded, by migrating the i
 A host is considered overloaded when the host total consumption or total used capacity is greater than the provided `cpu_ratio`.
 The total consumption and total used capacity for each host are given by the following formulas:
 
-```
-# Sum of the consumption of each VM on the host
-total_consumption = \sum_{i=1}^{n}(vcpus_i \times %cap_i \times %CPU_i)
-# Sum of the used capacity of each VM on the host
-total_used_capacity = \sum_{i=1}^{n}(vcpus_i \times %cap_i)
-```
+
+Sum of the consumption of each VM on the host
+
+![Alt Text](total_consumption.png "Total Consumption Formula")
+
+
+Sum of the used capacity of each VM on the host
+
+![Alt Text](total_used_capacity_formula.png "Total Used Capacity Formula")
+
 
 Below we list the parameters that the ProactiveCPUCap use and some scenarios results
 
