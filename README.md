@@ -41,10 +41,11 @@ To have your Load Balancer working properly you need to ensure that it has acces
 Heuristics
 ----------
 
-The heuristics are responsible to periodically verify wich hosts are overloaded, taking actions to reallocate VM's of these hosts
+The heuristics are responsible to periodically verify which hosts are overloaded, taking actions to reallocate VM's of these hosts
 to others, trying to make them less overloaded than before when possible.
-You can write your own heristics, just follow the steps in [Creating a Heuristic](#creating-a-heuristic)
+You can write your own heuristics, just follow the steps in [Creating a Heuristic](#creating-a-heuristic)
 Below we list all available heuristics that we have in our repository.
+
 
 
 #### List of Available Heuristics
@@ -54,8 +55,8 @@ Below we list all available heuristics that we have in our repository.
 
 ### Creating a Heuristic
 
-1. Create a python module file in `loadbalancer/servie/heuristic` directory
-2. In the module file create a class that inherits `BaseHeuristic` class from `loadbalancer/servie/heuristic/base.py`
+1. Create a python module file in `loadbalancer/service/heuristic` directory
+2. In the module file create a class that inherits `BaseHeuristic` class from `loadbalancer/service/heuristic/base.py`
 3. You must override collect_information and execute methods in your class.
 
 **Note:** Remember to update the `heuristic` section in your configuration file with the heuristic you want to use.
@@ -131,8 +132,8 @@ Limitations
 Running the LoadBalancer
 ------------------------
 
-    $ export PYTHONPATH=$PYTHONPATH":/path/to/bigsea-loadbalancer"
-    $ cd loadbalancer/
+    $ cd bigsea-loadbalancer/
+    $ export PYTHONPATH=$PYTHONPATH":"`pwd`
 
 #### Default configuration file
 

@@ -91,8 +91,8 @@ Dependencies
 
 - *Monasca*
 In your Monasca you should ensure that you have the following metrics:
--`cpu.percent`: Informs the percentage of cpu used by a host.
--`vm.cpu.utilization_norm_perc`: Informs the normalized cpu utilization percentage for instances in the hosts
+- `cpu.percent`: Informs the percentage of cpu used by a host.
+- `vm.cpu.utilization_norm_perc`: Informs the normalized cpu utilization percentage for instances in the hosts
 
 - *Hypervisor KVM*
 Your hosts should provide use KVM as hypervisor to allow the collection of the capacity of the instances through the `virsh` command through ssh connection.
