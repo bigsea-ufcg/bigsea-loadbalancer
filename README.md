@@ -65,11 +65,45 @@ Below we list all available heuristics that we have in our repository.
 Installation
 ------------
 
+To install the Load Balancer you will need a virtual machine with a fresh install environment and with the configuration described below.
+
+**Minimal Server Configuration**
+```
+OS: Ubuntu 14.04
+CPU: 1 core
+Memory: 2G of RAM
+Disk: there is no disk requirements
+```
+
 ### Steps
 
+1. Update and Upgrade your machine
+    ```bash
+    $ sudo apt-get update && sudo apt-get upgrade
+    ```
+2. Install pip and dependencies
+    ```bash
+    $ sudo apt-get install python-setuptools python-dev build-essential
+    $ sudo easy_install pip
+    ```
+3. Install git
+    ```bash
+    $ sudo apt-get install git
+    ```
+4. Install ssl
+    ```bash
+    $ sudo apt-get install libssl-dev
+    ```
+5. Clone the BigSea Load Balancer repository
+    ```bash
     $ git clone https://github.com/bigsea-ufcg/bigsea-loadbalancer.git
-    $ cd bigsea-loadbalancer/
-    $ pip install -r requirements.txt
+    ```
+6. Access the bigsea-loadbalancer folder to install the requirements
+    ```bash
+    # Some requirements need sudo.
+    $ sudo pip install -r requirements.txt
+    ```
+
 
 
 Configuration
@@ -133,7 +167,7 @@ Running the LoadBalancer
 ------------------------
 
     $ cd bigsea-loadbalancer/
-    $ export PYTHONPATH=$PYTHONPATH":"`pwd`
+    $ export PYTHONPATH":"`pwd`
 
 #### Default configuration file
 
