@@ -51,6 +51,7 @@ def main():
 
     try:
         logger = Log("main", "loadbalancer_main.log")
+        host_logger = Log("mainhostinfo", "hosts_information.log")
         configure_logging()
         cmd = command_line_parser()
         args = validation.cmd(cmd.parse_args())
@@ -66,10 +67,10 @@ def main():
         kwargs = {'monasca': MonascaManager(config), 'config': config}
 
         iaas_provider = config.get('infrastructure', 'provider')
-        logger.log("Identifying IaaS provider")
         if iaas_provider == 'OpenStack':
             kwargs['provider'] = iaas_provider
             kwargs['openstack'] = OpenStackConnector(config)
+            logger.log("Identified OpenStack as IaaS provider")
             logger.log("Creating OpenStack Connector")
 
         logger.log("Extracting Heuristic module and class")
@@ -80,13 +81,16 @@ def main():
         logger.log("Loading Heuristic %s from module %s" %
                    (heuristic_name, heuristic_module))
         heuristic_instance = heuristic(**kwargs)
-        logger.log("Created Heuristic")
+        logger.log("Successfully created %s Heuristic" % heuristic_name)
 
+        aux = 1
         while True:
+            host_logger.log("Host Usage (Load Balancer execution #%s)\n" % aux)
             logger.log("Heuristic %s making decision" % heuristic_name)
             heuristic_instance.decision()
             logger.log("Sleeping for %s seconds" % heuristic_period)
             time.sleep(heuristic_period)
+            aux += 1
 
     except Exception as e:
         print e

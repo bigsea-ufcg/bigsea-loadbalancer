@@ -9,6 +9,7 @@ class MonascaManager:
 
     def __init__(self, configuration):
         self.configuration = configuration
+
         self.logger = Log("Monasca", "monasca.log")
         configure_logging()
 
@@ -48,6 +49,7 @@ class MonascaManager:
             measurement = self.get_measurements(name, dimensions)[-1]
             response['timestamp'] = measurement[0]
             response['value'] = measurement[1]
+            self.logger.log(str(response))
             return response
 
     def get_measurements_group(self, metric_name,
@@ -56,7 +58,7 @@ class MonascaManager:
         for element in dimension_values:
             dimension = {dimension_name: element, 'hostname': hostname}
             value = self.last_measurement(
-                'vm.cpu.utilization_norm_perc', dimension)['value']
+                metric_name, dimension)['value']
             if value is not None:
                 group_measurement[element] = value
 
