@@ -6,6 +6,11 @@ auth_url=<@auth_url>
 monasca_api_version=v2_0
 
 [heuristic]
+# A float value that represents the ratio of number of cores in the hosts. (overcommit factor)
+cpu_ratio=0.5
+# An integer that represent the number of rounds that a instance need to wait before be migrated again
+# Each round represents an execution of the loadbalancer
+wait_rounds= 1
 # The filename for the module that is located in /loadbalancer/service/heuristic/
 # without .py extension
 module=<module_name>
@@ -13,7 +18,6 @@ module=<module_name>
 class=<class_name>
 #Number of seconds before execute the heuristic again
 period=<value>
-
 
 [infrastructure]
 # The user that have access to each host
@@ -24,7 +28,7 @@ hosts=<host>,<host2>
 #The key used to access the hosts
 key=<key_path>
 #The type of IaaS provider on your infrastructure e.g OpenStack, OpenNebula
-provider=<provider_name>
+provider=OpenStack
 
 [openstack]
 username=<@username>
