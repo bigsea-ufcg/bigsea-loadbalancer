@@ -23,16 +23,17 @@ and reallocate VM's that are on overloaded hosts, the decision is based on the h
 
 ### Architecture
 
-The LoadBalancer need to access to Nova and Monasca in your Cloud Infrastructure, sometime it may require ssh access to hosts to perform actions
-(e.g. discover VM's CPU capacity)
+The LoadBalancer need to access to Keystone, Nova and Monasca in your OpenStack Cloud Infrastructure,
+sometimes it may require ssh access to hosts to perform actions (e.g. discover VM's CPU capacity)
 
-<Image>
+![Alt Text](lb_architecture.png "Load Balancer Architecture")
 
 
 ### Dependencies
 
 To have your Load Balancer working properly you need to ensure that it has access to following components in your Infrastructure:
 
+* OpenStack Identity Service - *Keystone*
 * OpenStack Compute Service - *Nova* (with admin privileges)
 * OpenStack Monitoring Service - *Monasca*
 * Infrastructure Hosts (KVM Hypervisor)
@@ -44,16 +45,23 @@ Heuristics
 The heuristics are responsible to periodically verify which hosts are overloaded, taking actions to reallocate VM's of these hosts
 to others, trying to make them less overloaded than before when possible.
 You can write your own heuristics, just follow the steps in [Creating a Heuristic](#creating-a-heuristic)
-Below we list all available heuristics that we have in our repository.
+Below we list all parameters that help in the heuristics decisions and all available heuristics in our repository.
 
+
+#### Parameters
+
+- `cpu_ratio`: (Float) The ratio of number of cpus cores to take in consideration if the hosts are overloaded.
+- `wait_rounds`: (Integer) The number of executions of the heuristic that each instance has to wait before be migrated again.
 
 
 #### List of Available Heuristics
 
+- [BalanceInstancesOS](loadbalancer/service/heuristic/doc/balance.md)
 - [ProactiveCPUCap](loadbalancer/service/heuristic/doc/cpu_capacity.md)
+- [SysbenchPerfCPUCap](loadbalancer/service/heuristic/doc/performance.md)
 
 
-### Creating a Heuristic
+#### Creating a Heuristic
 
 1. Create a python module file in `loadbalancer/service/heuristic` directory
 2. In the module file create a class that inherits `BaseHeuristic` class from `loadbalancer/service/heuristic/base.py`
@@ -160,7 +168,7 @@ Limitations
 -----------
 
 * Only support OpenStack Infrastructure
-* Nova Live Migrations considers only *shared storage-based live migrations* (We don't take in consideration the migration cost)
+* Nova Live Migrations considers only *shared storage-based live migrations* [1](https://docs.openstack.org/nova/pike/admin/configuring-migrations.html)
 
 
 Running the LoadBalancer

@@ -1,10 +1,8 @@
-ProactiveCPUCap Heuristic
-=========================
+BalanceInstancesOS Heuristic
+============================
 
 #### Table of Contents
 - [Description](#description)
-    - [Parameters](#parameters)
-    - [Scenarios](#scenarios)
 - [Algorithm](#algorithm)
 - [Configuration](#configuration)
     - [Example of heuristic section in configuration file](#example-of-heuristic-section-in-configuration-file)
@@ -14,20 +12,10 @@ ProactiveCPUCap Heuristic
 Description
 -----------
 
-This heuristic aims to balance the hosts that are overloaded, by migrating the instances that are responsible for the increased utilization in the hosts.
-A host is considered overloaded when the host total consumption or total used capacity is greater than the provided `cpu_ratio`.
-The total consumption and total used capacity for each host are given by the following formulas:
-
-
-Sum of the consumption of each VM on the host
-
-![Alt Text](total_consumption.png "Total Consumption Formula")
-
-
-Sum of the used capacity of each VM on the host
-
-![Alt Text](total_used_capacity_formula.png "Total Used Capacity Formula")
-
+This heuristic aims to balance the hosts that are overloaded, by migrating the instances that are responsible for
+the increased utilization in the hosts, to hosts that aren't overloaded, till the hosts aren't overloaded anymore or
+that all possibilities are over. A host is considered overloaded when its total of used cpu divided by the total of
+cpu is greater than the provided `cpu_ratio`.
 
 Algorithm
 ---------
@@ -51,20 +39,20 @@ Configuration
 To configure this heuristic you need to set two parameters in the `heuristic` section in the configuration file, thoose parameters are:
 `module`and `class`.
 
-You can find an example of configuration file for this heuristic [here](../../../../examples/load_balancer_proactivecap.cfg).
+You can find an example of configuration file for this heuristic [here](../../../../examples/load_balancer_balanceinstancesos.cfg).
 
 ### Example of heuristic section in configuration file
 
-`load_balancer_proactivecap.cfg`
+`load_balancer_balanceinstancesos.cfg`
 
 
 ```
 [heuristic]
 # The filename for the module that is located in /loadbalancer/service/heuristic/
 # without .py extension
-module=cpu_capacity
+module=instances
 # The class name that is inside the given module, this class should implement BasicHeuristic
-class=ProactiveCPUCap
+class=BalanceInstancesOS
 ```
 
 Dependencies
