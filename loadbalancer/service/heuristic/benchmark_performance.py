@@ -1,9 +1,8 @@
 from loadbalancer.service.heuristic.base import BaseHeuristic
 from loadbalancer.utils.kvm import RemoteKvm
 from loadbalancer.utils.logger import configure_logging, Log
+from loadbalancer.utils.migration import MigrationUtils as utils
 
-import json
-import os.path
 import Queue as Q
 
 
@@ -103,13 +102,13 @@ class SysbenchPerfCPUCap(BaseHeuristic):
         metrics, resources = self.collect_information()
         overloaded_hosts = self._get_overloaded_hosts(metrics, resources)
         all_hosts = self.openstack.available_hosts()
-        waiting = self._get_waitting_instances()
+        waiting = utils.get_waiting_instances()
 
         if not overloaded_hosts:
             self.logger.log("No hosts overloaded")
             self.lb_logger.log("No hosts overloaded")
-            self._write_waitting_instances({}, waiting)
-            self._write_migrations({})
+            utils.write_waiting_instances({}, waiting, self.wait_rounds)
+            utils.write_migrations({})
         elif set(overloaded_hosts) == set(all_hosts):
             self.logger.log(
                 "Overloaded hosts %s are equal to available hosts"
@@ -121,8 +120,8 @@ class SysbenchPerfCPUCap(BaseHeuristic):
                 % overloaded_hosts
             )
             self.lb_logger.log("No migrations can be done")
-            self._write_waitting_instances({}, waiting)
-            self._write_migrations({})
+            utils.write_waiting_instances({}, waiting, self.wait_rounds)
+            utils.write_migrations({})
         else:
             self.logger.log("Overloaded hosts %s" % str(overloaded_hosts))
             self.lb_logger.log("Overloaded hosts %s" % str(overloaded_hosts))
@@ -179,9 +178,9 @@ class SysbenchPerfCPUCap(BaseHeuristic):
         self.logger.log(str(migrations))
         performed_migrations = self.openstack.live_migration(
             migrations)
-        self._write_migrations(performed_migrations)
-        self._write_waitting_instances(performed_migrations,
-                                       waiting)
+        utils.write_migrations(performed_migrations)
+        utils.write_waiting_instances(performed_migrations,
+                                      waiting, self.wait_rounds)
         self.host_logger.log(
             "----------------------------------------------------------------")
         self.lb_logger.log(
@@ -246,11 +245,11 @@ class SysbenchPerfCPUCap(BaseHeuristic):
 
                 migrations.update({instance_id: new_host})
                 # Update resources
-                resources = self._reallocate_resources(
+                resources = utils.reallocate_resources(
                     resources, host, new_host, instance_info
                 )
                 # Update metrics
-                metrics = self._metrics_update(
+                metrics = utils.metrics_update(
                     metrics, host, new_host, instance_id, instance_info
                 )
 
@@ -347,9 +346,9 @@ class SysbenchPerfCPUCap(BaseHeuristic):
         self.logger.log(str(ord_ovld_hosts))
         return ord_ovld_hosts
 
-    def _select_low_instance(self, instances_host, waitting_instances):
+    def _select_low_instance(self, instances_host, waiting_instances):
         instances = list(
-            set(instances_host.keys()) - set(waitting_instances))
+            set(instances_host.keys()) - set(waiting_instances))
         priority_instances = Q.PriorityQueue()
         for instance_id in instances:
             consumption = instances_host[instance_id]['consumption']
@@ -407,51 +406,3 @@ class SysbenchPerfCPUCap(BaseHeuristic):
             return True
         else:
             return False
-
-    def _reallocate_resources(self, resources, old_host, new_host,
-                              instance_info):
-        resources[new_host]['used_now']['cpu'] += instance_info['vcpus']
-        resources[old_host]['used_now']['cpu'] -= instance_info['vcpus']
-        resources[new_host]['used_now']['memory_mb'] += instance_info[
-            'memory']
-        resources[old_host]['used_now']['memory_mb'] -= instance_info[
-            'memory']
-        resources[new_host]['used_now']['disk_gb'] += instance_info['disk']
-        resources[old_host]['used_now']['disk_gb'] -= instance_info['disk']
-        return resources
-
-    def _metrics_update(self, metrics, old_host, new_host, instance_id,
-                        instance_info):
-        del metrics[old_host]['instances'][instance_id]
-        metrics[new_host]['instances'].update({instance_id: instance_info})
-        metrics[new_host]['consumption'] += instance_info['consumption']
-        metrics[old_host]['consumption'] -= instance_info['consumption']
-        metrics[new_host]['cap'] += instance_info['used_capacity']
-        metrics[old_host]['cap'] -= instance_info['used_capacity']
-        return metrics
-
-    def _get_waitting_instances(self):
-        self.logger.log("")
-        if os.path.isfile('waitting_instances.json'):
-            with open('waitting_instances.json') as json_file:
-                return json.load(json_file)
-        else:
-            return {}
-
-    def _write_waitting_instances(self, migrations, waiting):
-        new_waiting = waiting.copy()
-        for instance in waiting:
-            waiting_rounds = waiting[instance] + 1
-            if waiting_rounds >= self.wait_rounds:
-                del new_waiting[instance]
-            else:
-                new_waiting[instance] = waiting_rounds
-        for instance in migrations:
-            new_waiting[instance] = 0
-        with open('waitting_instances.json', 'w') as output:
-            json.dump(new_waiting, output)
-
-    def _write_migrations(self, migrations):
-        self.logger.log("Writting migrations")
-        with open('migrations.json', 'w') as outfile:
-            json.dump(migrations, outfile)
