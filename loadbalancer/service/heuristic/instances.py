@@ -1,9 +1,8 @@
 from loadbalancer.service.heuristic.base import BaseHeuristic
 from loadbalancer.utils.kvm import RemoteKvm
 from loadbalancer.utils.logger import configure_logging, Log
+from loadbalancer.utils.migration import MigrationUtils as utils
 
-import json
-import os.path
 import Queue as Q
 
 
@@ -95,13 +94,13 @@ class BalanceInstancesOS(BaseHeuristic):
         metrics, resource = self.collect_information()
         overloaded_hosts = self._get_overloaded_hosts(metrics, resource)
         all_hosts = self.openstack.available_hosts()
-        waiting = self._get_waiting_instances()
+        waiting = utils.get_waiting_instances()
 
         if not overloaded_hosts:
             self.logger.log("No hosts overloaded")
             self.lb_logger.log("No hosts overloaded")
-            self._write_migrations({})
-            self._write_waiting_instances({}, waiting)
+            utils.write_migrations({})
+            utils.write_waiting_instances({}, waiting, self.wait_rounds)
         elif set(overloaded_hosts) == set(all_hosts):
             self.logger.log(
                 "Overloaded hosts %s are equal to available hosts"
@@ -113,8 +112,8 @@ class BalanceInstancesOS(BaseHeuristic):
                 % overloaded_hosts
             )
             self.lb_logger.log("No migrations can be done")
-            self._write_migrations({})
-            self._write_waiting_instances({}, waiting)
+            utils.write_migrations({})
+            utils.write_waiting_instances({}, waiting, self.wait_rounds)
         else:
             self.logger.log("Overloaded hosts %s" % str(overloaded_hosts))
             self.lb_logger.log("Overloaded hosts %s" % str(overloaded_hosts))
@@ -215,11 +214,11 @@ class BalanceInstancesOS(BaseHeuristic):
                     else:
                         migrations.update({instance_id: new_host})
                         # Update Resources
-                        updated_resources = self._reallocate_resources(
+                        updated_resources = utils.reallocate_resources(
                             updated_resources, host, new_host, instance_info
                         )
                         # Update Metrics
-                        metrics = self._metrics_update(
+                        metrics = utils.metrics_update(
                             metrics, host, new_host, instance_id, instance_info
                         )
 
@@ -242,8 +241,9 @@ class BalanceInstancesOS(BaseHeuristic):
         self.logger.log("Migrations")
         self.logger.log(str(migrations))
         performed_migrations = self.openstack.live_migration(migrations)
-        self._write_migrations(performed_migrations)
-        self._write_waiting_instances(performed_migrations, waiting)
+        utils.write_migrations(performed_migrations)
+        utils.write_waiting_instances(performed_migrations, waiting,
+                                      self.wait_rounds)
         self.host_logger.log(
             "----------------------------------------------------------------")
         self.lb_logger.log(
@@ -296,49 +296,3 @@ class BalanceInstancesOS(BaseHeuristic):
                     else:
                         continue
         return selected_host
-
-    def _reallocate_resources(self, resources, old_host, new_host,
-                              instance_info):
-        resources[new_host]['used_now']['cpu'] += instance_info['vcpus']
-        resources[old_host]['used_now']['cpu'] -= instance_info['vcpus']
-        resources[new_host]['used_now']['memory_mb'] += instance_info['memory']
-        resources[old_host]['used_now']['memory_mb'] -= instance_info['memory']
-        resources[new_host]['used_now']['disk_gb'] += instance_info['disk']
-        resources[old_host]['used_now']['disk_gb'] -= instance_info['disk']
-        return resources
-
-    def _metrics_update(self, metrics, old_host, new_host, instance_id,
-                        instance_info):
-        del metrics[old_host]['instances'][instance_id]
-        metrics[new_host]['instances'].update({instance_id: instance_info})
-        metrics[new_host]['consumption'] += instance_info['consumption']
-        metrics[old_host]['consumption'] -= instance_info['consumption']
-        metrics[new_host]['cap'] += instance_info['used_capacity']
-        metrics[old_host]['cap'] -= instance_info['used_capacity']
-        return metrics
-
-    def _get_waiting_instances(self):
-        self.logger.log("")
-        if os.path.isfile('waiting_instances.json'):
-            with open('waiting_instances.json') as json_file:
-                return json.load(json_file)
-        else:
-            return {}
-
-    def _write_waiting_instances(self, migrations, waiting):
-        new_waiting = waiting.copy()
-        for instance in waiting:
-            waitting_rounds = waiting[instance] + 1
-            if waitting_rounds >= self.wait_rounds:
-                del new_waiting[instance]
-            else:
-                new_waiting[instance] = waitting_rounds
-        for instance in migrations:
-            new_waiting[instance] = 0
-        with open('waiting_instances.json', 'w') as output:
-            json.dump(new_waiting, output)
-
-    def _write_migrations(self, migrations):
-        self.logger.log("Writting migrations")
-        with open('migrations.json', 'w') as outfile:
-            json.dump(migrations, outfile)
