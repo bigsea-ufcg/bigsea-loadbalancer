@@ -26,8 +26,8 @@ def command_line_parser():
     return parser
 
 
-def get_heuristic_class(module, class_name):
-    heuristic_module = ("loadbalancer.service.heuristic." +
+def get_class(service, module, class_name):
+    heuristic_module = ("loadbalancer.service." + service + "." +
                         module + "." + class_name)
 
     parts = heuristic_module.split('.')
@@ -73,27 +73,34 @@ def main():
             logger.log("Identified OpenStack as IaaS provider")
             logger.log("Creating OpenStack Connector")
 
+        if config.has_section('optimizer'):
+            opt_module = config.get('optimizer', 'module')
+            opt_class = config.get('optimizer', 'class')
+            opt_service = get_class('optimizer', opt_module, opt_class)
+            optimizer = opt_service(**kwargs)
+            kwargs['optimizer'] = optimizer
+        else:
+            kwargs['optimizer'] = None
         logger.log("Extracting Heuristic module and class")
         heuristic_period = float(config.get('heuristic', 'period'))
         heuristic_module = config.get('heuristic', 'module')
-        heuristic_name = config.get('heuristic', 'class')
-        heuristic = get_heuristic_class(heuristic_module, heuristic_name)
+        heuristic_class = config.get('heuristic', 'class')
+        heuristic = get_class('heuristic', heuristic_module, heuristic_class)
         logger.log("Loading Heuristic %s from module %s" %
-                   (heuristic_name, heuristic_module))
+                   (heuristic_class, heuristic_module))
         heuristic_instance = heuristic(**kwargs)
-        logger.log("Successfully created %s Heuristic" % heuristic_name)
+        logger.log("Successfully created %s Heuristic" % heuristic_class)
 
         aux = 1
         while True:
             host_logger.log("Host Usage (Load Balancer execution #%s)\n" % aux)
-            logger.log("Heuristic %s making decision" % heuristic_name)
+            logger.log("Heuristic %s making decision" % heuristic_class)
             heuristic_instance.decision()
             logger.log("Sleeping for %s seconds" % heuristic_period)
             time.sleep(heuristic_period)
             aux += 1
 
     except Exception as e:
-        print e
         print(e.message)
         sys.exit(2)
 

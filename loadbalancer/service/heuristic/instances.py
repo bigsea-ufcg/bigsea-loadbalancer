@@ -3,6 +3,7 @@ from loadbalancer.utils.kvm import RemoteKvm
 from loadbalancer.utils.logger import configure_logging, Log
 from loadbalancer.utils.migration import MigrationUtils as utils
 
+import copy
 import Queue as Q
 
 
@@ -17,6 +18,7 @@ class BalanceInstancesOS(BaseHeuristic):
         configure_logging()
 
         self.monasca = kwargs['monasca']
+        self.optimizer = kwargs['optimizer']
         self.kvm = RemoteKvm(kwargs['config'])
         if kwargs['provider'] == 'OpenStack':
             self.openstack = kwargs['openstack']
@@ -92,6 +94,8 @@ class BalanceInstancesOS(BaseHeuristic):
 
     def decision(self):
         metrics, resource = self.collect_information()
+        self.logger.log("Decision Metrics")
+        self.logger.log(str(metrics))
         overloaded_hosts = self._get_overloaded_hosts(metrics, resource)
         all_hosts = self.openstack.available_hosts()
         waiting = utils.get_waiting_instances()
@@ -102,18 +106,25 @@ class BalanceInstancesOS(BaseHeuristic):
             utils.write_migrations({})
             utils.write_waiting_instances({}, waiting, self.wait_rounds)
         elif set(overloaded_hosts) == set(all_hosts):
-            self.logger.log(
-                "Overloaded hosts %s are equal to available hosts"
-                % overloaded_hosts
-            )
-            self.logger.log("No migrations can be done")
-            self.lb_logger.log(
-                "Overloaded hosts %s are equal to available hosts"
-                % overloaded_hosts
-            )
-            self.lb_logger.log("No migrations can be done")
-            utils.write_migrations({})
-            utils.write_waiting_instances({}, waiting, self.wait_rounds)
+            if self.optimizer:
+                params = dict(metrics=metrics, resource_info=resource,
+                              openstack=self.openstack, ratio=self.ratio)
+                optimizer_decision = self.optimizer.decision(**params)
+                if optimizer_decision is not None:
+                    return self.decision()
+            else:
+                self.logger.log(
+                    "Overloaded hosts %s are equal to available hosts"
+                    % overloaded_hosts
+                )
+                self.logger.log("No migrations can be done")
+                self.lb_logger.log(
+                    "Overloaded hosts %s are equal to available hosts"
+                    % overloaded_hosts
+                )
+                self.lb_logger.log("No migrations can be done")
+                utils.write_migrations({})
+                utils.write_waiting_instances({}, waiting, self.wait_rounds)
         else:
             self.logger.log("Overloaded hosts %s" % str(overloaded_hosts))
             self.lb_logger.log("Overloaded hosts %s" % str(overloaded_hosts))
@@ -151,6 +162,19 @@ class BalanceInstancesOS(BaseHeuristic):
                 self.logger.log(
                     "Missing information about instance %s " % instance_id
                 )
+                used_capacity = flavor[instance_id]['vcpus'] * cap[instance_id]
+                consumption = used_capacity * 1  # Consider 100% of utilization
+                host_consumption += consumption
+                host_cap += used_capacity
+                metrics[instance_id] = {'vcpus': flavor[instance_id]['vcpus'],
+                                        'memory': flavor[instance_id]['ram'],
+                                        'disk': flavor[instance_id]['disk'],
+                                        'cap': cap[instance_id],
+                                        'consumption': consumption,
+                                        'used_capacity': used_capacity}
+                self.logger.log(
+                    "Missing information about instance %s " % instance_id
+                )
 
         return metrics, host_consumption, host_cap
 
@@ -178,8 +202,12 @@ class BalanceInstancesOS(BaseHeuristic):
         return overloaded_hosts
 
     def _define_migrations(self, metrics, resources, overloaded_hosts):
+
+        original_metrics = copy.deepcopy(metrics)
+        self.logger.log("define migrations")
+        self.logger.log(str(original_metrics))
         updated_resources = resources.copy()
-        waiting = self._get_waiting_instances()
+        waiting = utils.get_waiting_instances()
         migrations = {}
         self.logger.log("Overloaded hosts %s" % str(overloaded_hosts))
         for host in overloaded_hosts:
@@ -235,8 +263,25 @@ class BalanceInstancesOS(BaseHeuristic):
                         else:
                             break
 
-                if hosts_instances.empty():
-                    is_overloaded = False
+                is_overloaded = self._host_is_loaded(
+                    host, updated_resources
+                )
+
+                if is_overloaded:
+                    if self.optimizer:
+                        self.logger.log("Original Metrics")
+                        self.logger.log(str(original_metrics))
+                        params = dict(metrics=original_metrics,
+                                      resource_info=resources,
+                                      openstack=self.openstack,
+                                      ratio=self.ratio)
+                        optimizer_decision = self.optimizer.decision(**params)
+                        if optimizer_decision is not None:
+                            return self.decision()
+                        else:
+                            is_overloaded = False
+                    else:
+                        is_overloaded = False
 
         self.logger.log("Migrations")
         self.logger.log(str(migrations))

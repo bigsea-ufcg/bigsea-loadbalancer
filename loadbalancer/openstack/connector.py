@@ -117,3 +117,19 @@ class OpenStackConnector(object):
             self.logger.log("Getting Flavor information for instance %s" %
                             instance_id)
         return instances_flavors
+
+    def get_instance_host(self, instance_id):
+        nova = self.__get_nova_client()
+        instance = nova.servers.get(instance_id)
+        return instance.__getattr__('OS-EXT-SRV-ATTR:host')
+
+    def delete_instances(self, instances):
+        nova = self.__get_nova_client()
+        for instance_id in instances:
+            instance = nova.servers.get(instance_id)
+            instance.delete()
+            while True:
+                try:
+                    nova.servers.get(instance_id)
+                except Exception:
+                    break

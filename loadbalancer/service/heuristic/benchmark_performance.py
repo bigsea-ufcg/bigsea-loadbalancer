@@ -3,6 +3,7 @@ from loadbalancer.utils.kvm import RemoteKvm
 from loadbalancer.utils.logger import configure_logging, Log
 from loadbalancer.utils.migration import MigrationUtils as utils
 
+import copy
 import Queue as Q
 
 
@@ -16,6 +17,7 @@ class SysbenchPerfCPUCap(BaseHeuristic):
         self.host_logger = Log("hostinfo", "hosts_information.log")
         configure_logging()
         self.monasca = kwargs['monasca']
+        self.optimizer = kwargs['optimizer']
         self.kvm = RemoteKvm(kwargs['config'])
         if kwargs['provider'] == 'OpenStack':
             self.openstack = kwargs['openstack']
@@ -27,7 +29,7 @@ class SysbenchPerfCPUCap(BaseHeuristic):
             'infrastructure', 'hosts'
         ).split(',')
         self.lb_logger.log(
-            "ProactiveCPUCap configuration: cpu_ratio=%s | wait_rounds=%s" %
+            "SysbenchPerfCPUCap configuration: cpu_ratio=%s | wait_rounds=%s" %
             (str(self.ratio), str(self.wait_rounds))
         )
 
@@ -76,6 +78,7 @@ class SysbenchPerfCPUCap(BaseHeuristic):
                 instances_utilization, cpu_cap_percentage,
                 instances_flavor, host_instances
             )
+            self.logger.log("Calculated metrics for instances")
 
             performance_metric = self.monasca.last_measurement(
                 'sysbench.cpu.performance',
@@ -110,18 +113,26 @@ class SysbenchPerfCPUCap(BaseHeuristic):
             utils.write_waiting_instances({}, waiting, self.wait_rounds)
             utils.write_migrations({})
         elif set(overloaded_hosts) == set(all_hosts):
-            self.logger.log(
-                "Overloaded hosts %s are equal to available hosts"
-                % overloaded_hosts
-            )
-            self.logger.log("No migrations can be done")
-            self.lb_logger.log(
-                "Overloaded hosts %s are equal to available hosts"
-                % overloaded_hosts
-            )
-            self.lb_logger.log("No migrations can be done")
-            utils.write_waiting_instances({}, waiting, self.wait_rounds)
-            utils.write_migrations({})
+            if self.optimizer:
+                params = dict(metrics=metrics, resource_info=resources,
+                              openstack=self.openstack, ratio=self.ratio)
+                optimizer_decision = self.optimizer.decision(**params)
+                if optimizer_decision is not None:
+                    return self.decision()
+            else:
+                self.logger.log(
+                    "Overloaded hosts %s are equal to available hosts"
+                    % overloaded_hosts
+                )
+                self.logger.log("No migrations can be done")
+                self.lb_logger.log(
+                    "Overloaded hosts %s are equal to available hosts"
+                    % overloaded_hosts
+                )
+                self.lb_logger.log("No migrations can be done")
+
+                utils.write_waiting_instances({}, waiting, self.wait_rounds)
+                utils.write_migrations({})
         else:
             self.logger.log("Overloaded hosts %s" % str(overloaded_hosts))
             self.lb_logger.log("Overloaded hosts %s" % str(overloaded_hosts))
@@ -131,6 +142,7 @@ class SysbenchPerfCPUCap(BaseHeuristic):
 
     def _define_migrations(self, metrics, resources, overloaded_hosts,
                            waiting):
+        original_metrics = copy.deepcopy(metrics)
         updated_resources = resources.copy()
         waiting = waiting
         migrations = {}
@@ -172,7 +184,18 @@ class SysbenchPerfCPUCap(BaseHeuristic):
                     host, updated_resources, metrics
                 )
                 if is_overloaded:
-                    break
+                    if self.optimizer:
+                        params = dict(metrics=original_metrics,
+                                      resource_info=resources,
+                                      openstack=self.openstack,
+                                      ratio=self.ratio)
+                        optimizer_decision = self.optimizer.decision(**params)
+                        if optimizer_decision is not None:
+                            return self.decision()
+                        else:
+                            break
+                    else:
+                        break
 
         self.logger.log("Migrations")
         self.logger.log(str(migrations))
@@ -300,6 +323,25 @@ class SysbenchPerfCPUCap(BaseHeuristic):
                 self.logger.log(
                     "Missing information about instance %s " % instance_id
                 )
+                used_capacity = flavor[instance_id]['vcpus'] * cap[instance_id]
+                consumption = used_capacity * 1
+                host_consumption += consumption
+                host_cap += used_capacity
+                metrics[instance_id] = {'vcpus': flavor[instance_id]['vcpus'],
+                                        'memory': flavor[instance_id]['ram'],
+                                        'disk': flavor[instance_id]['disk'],
+                                        'cap': cap[instance_id],
+                                        'consumption': consumption,
+                                        'used_capacity': used_capacity}
+                self.logger.log(
+                    "%s | utilization: %s | cap: %s | CPU: %s  " %
+                    (instance_id, metrics[instance_id]['consumption'],
+                     cap[instance_id], flavor[instance_id]['vcpus'])
+                )
+                self.logger.log(
+                    "calculated consumption and used_capacity for instance %s"
+                    % instance_id
+                )
 
         return metrics, host_consumption, host_cap
 
@@ -323,11 +365,12 @@ class SysbenchPerfCPUCap(BaseHeuristic):
 
             used = resource_info[host]['used_now']['cpu']
             cpu_perc = metrics[host]['cpu_perc']
+            print cpu_perc
             self.host_logger.log(
                 "Host %s | CPU %s/%s cores" % (host, used, num_cores)
             )
             self.host_logger.log(
-                "Host %s | CPU(%%) =%.2f |TotalConsump=%.2f | TotalCap=%.2f" %
+                "Host %s | CPU(%%)=%.2f |TotalConsump=%.2f | TotalCap=%.2f" %
                 (host, cpu_perc, total_consumption, total_cap)
             )
             self.host_logger.log(

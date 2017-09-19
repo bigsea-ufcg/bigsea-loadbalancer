@@ -65,7 +65,7 @@ Below we list all parameters that help in the heuristics decisions and all avail
 
 1. Create a python module file in `loadbalancer/service/heuristic` directory
 2. In the module file create a class that inherits `BaseHeuristic` class from `loadbalancer/service/heuristic/base.py`
-3. You must override collect_information and execute methods in your class.
+3. You must override `collect_information` and `decision` methods in your class.
 
 **Note:** Remember to update the `heuristic` section in your configuration file with the heuristic you want to use.
 
@@ -109,7 +109,7 @@ Disk: there is no disk requirements
 6. Access the bigsea-loadbalancer folder to install the requirements
     ```bash
     # Some requirements need sudo.
-    $ sudo pip install -r requirements.txt
+    $ ./install.sh
     ```
 
 
@@ -162,6 +162,19 @@ user_domain_name=<@user_domain_name>
 project_name=<@project_name>
 project_domain_name=<@project_domain_name>
 auth_url=<@auth_url>
+
+[optimizer]
+# The filename for the module that is located in /loadbalancer/service/heuristic/
+# without .py extension
+module=<optimizer_module_name>
+# The class name that is inside the given module, this class should implement BaseOptimizer
+class=<optimizer_class_name>
+# The url to make the request to the optimizer service
+request_url=<http://url/...>
+# The type of the request: GET, POST, etc...
+request_type=<type>
+# Parameters to be used with the request url
+request_params=<params>
 ```
 
 Limitations
@@ -175,7 +188,7 @@ Running the LoadBalancer
 ------------------------
 
     $ cd bigsea-loadbalancer/
-    $ export PYTHONPATH":"`pwd`
+    $ export PYTHONPATH=":"`pwd`
 
 #### Default configuration file
 
