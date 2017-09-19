@@ -1,5 +1,5 @@
-ProactiveCPUCap Heuristic
-=========================
+CPUCapAware Heuristic
+=====================
 
 #### Table of Contents
 - [Description](#description)
@@ -51,11 +51,11 @@ Configuration
 To configure this heuristic you need to set two parameters in the `heuristic` section in the configuration file, thoose parameters are:
 `module`and `class`.
 
-You can find an example of configuration file for this heuristic [here](../../../../examples/load_balancer_proactivecap.cfg).
+You can find an example of configuration file for this heuristic [here](../../../../examples/load_balancer_cpucapaware.cfg).
 
 ### Example of heuristic section in configuration file
 
-`load_balancer_proactivecap.cfg`
+`load_balancer_cpucapaware.cfg`
 
 
 ```
@@ -64,7 +64,7 @@ You can find an example of configuration file for this heuristic [here](../../..
 # without .py extension
 module=cpu_capacity
 # The class name that is inside the given module, this class should implement BasicHeuristic
-class=ProactiveCPUCap
+class=CPUCapAware
 ```
 
 Dependencies

@@ -3,15 +3,18 @@ from loadbalancer.utils.kvm import RemoteKvm
 from loadbalancer.utils.logger import configure_logging, Log
 from loadbalancer.utils.migration import MigrationUtils as utils
 
+import copy
 
-class ProactiveCPUCap(BaseHeuristic):
+
+class CPUCapAware(BaseHeuristic):
 
     def __init__(self, **kwargs):
-        self.logger = Log("ProActiveCap", "heuristic_ProActiveCap.log")
+        self.logger = Log("CPUCapAware", "heuristic_CPUCapAware.log")
         self.lb_logger = Log("mainHeuristic", "loadbalancer_main.log")
         self.host_logger = Log("hostinfo", "hosts_information.log")
         configure_logging()
         self.monasca = kwargs['monasca']
+        self.optimizer = kwargs['optimizer']
         self.kvm = RemoteKvm(kwargs['config'])
         if kwargs['provider'] == 'OpenStack':
             self.openstack = kwargs['openstack']
@@ -24,7 +27,7 @@ class ProactiveCPUCap(BaseHeuristic):
         ).split(',')
 
         self.lb_logger.log(
-            "ProactiveCPUCap configuration: cpu_ratio=%s | wait_rounds=%s" %
+            "CPUCapAware configuration: cpu_ratio=%s | wait_rounds=%s" %
             (str(self.ratio), str(self.wait_rounds))
         )
 
@@ -92,93 +95,122 @@ class ProactiveCPUCap(BaseHeuristic):
         self.logger.log(str(metrics))
         self.logger.log("Resource Information")
         self.logger.log(str(resources))
-        updated_resources = resources.copy()
-        hosts = self._get_overloaded_hosts(metrics, resources)
+        overloaded_hosts = self._get_overloaded_hosts(metrics, resources)
         waiting = utils.get_waiting_instances()
-        migrations = {}
 
-        if not hosts:
+        if not overloaded_hosts:
             self.logger.log("No hosts overloaded")
             self.lb_logger.log("No hosts overloaded")
             utils.write_migrations({})
             utils.write_waiting_instances({}, waiting, self.wait_rounds)
-        elif set(hosts) == set(self.openstack.available_hosts()):
-            self.logger.log(
-                "Overloaded hosts %s are equal to available hosts" % hosts
-            )
-            self.logger.log("No migrations can be done")
-            self.lb_logger.log(
-                "Overloaded hosts %s are equal to available hosts" % hosts
-            )
-            self.lb_logger.log("No migrations can be done")
-            utils.write_migrations({})
-            utils.write_waiting_instances({}, waiting, self.wait_rounds)
+        elif set(overloaded_hosts) == set(self.openstack.available_hosts()):
+            if self.optimizer:
+                params = dict(metrics=metrics, resource_info=resources,
+                              openstack=self.openstack, ratio=self.ratio)
+                optimizer_decision = self.optimizer.decision(**params)
+                if optimizer_decision is not None:
+                    return self.decision()
+            else:
+                self.logger.log(
+                    "Overloaded hosts %s are equal to available hosts"
+                    % overloaded_hosts
+                )
+                self.logger.log("No migrations can be done")
+                self.lb_logger.log(
+                    "Overloaded hosts %s are equal to available hosts"
+                    % overloaded_hosts
+                )
+                self.lb_logger.log("No migrations can be done")
+                utils.write_migrations({})
+                utils.write_waiting_instances({}, waiting, self.wait_rounds)
         else:
-            self.logger.log("Overloaded hosts %s" % str(hosts))
-            self.lb_logger.log("Overloaded hosts %s" % str(hosts))
-            self.lb_logger.log("Migrations")
-            for host in hosts:
+            self.logger.log("Overloaded hosts %s" % str(overloaded_hosts))
+            self.lb_logger.log("Overloaded hosts %s" % str(overloaded_hosts))
+            self._define_migrations(metrics, resources, overloaded_hosts)
 
-                ignore_instances = []
-                num_instances = len(metrics[host]['instances'])
+    def _define_migrations(self, metrics, resources, overloaded_hosts):
+        original_metrics = copy.deepcopy(metrics)
+        updated_resources = resources.copy()
+        waiting = utils.get_waiting_instances()
+        migrations = {}
+        self.logger.log("Overloaded hosts %s" % str(overloaded_hosts))
+        self.lb_logger.log("Overloaded hosts %s" % str(overloaded_hosts))
+        self.lb_logger.log("Migrations")
+        for host in overloaded_hosts:
 
-                while len(ignore_instances) != num_instances:
+            ignore_instances = []
+            num_instances = len(metrics[host]['instances'])
 
-                    instance = self._select_instance(
-                        metrics[host]['instances'], ignore_instances,
-                        waiting.keys()
+            while len(ignore_instances) != num_instances:
+
+                instance = self._select_instance(
+                    metrics[host]['instances'], ignore_instances,
+                    waiting.keys()
+                )
+
+                instance_info = metrics[host]['instances'][instance]
+
+                other_hosts_resources = updated_resources.copy()
+
+                del other_hosts_resources[host]
+
+                new_host = self._get_less_loaded_hosts(
+                    other_hosts_resources, instance_info, metrics
+                )
+                if new_host is None:
+                    self.logger.log(
+                        "No host found to migrate instance %s" % instance
+                    )
+                    ignore_instances.append(instance)
+                    self.lb_logger.log(
+                        "No host found to migrate VM %s from host %s" %
+                        (instance_info, host)
+                    )
+                else:
+                    migrations.update({instance: new_host})
+                    ignore_instances.append(instance)
+
+                    # Update Resources
+                    updated_resources = utils.reallocate_resources(
+                        updated_resources, host, new_host, instance_info
                     )
 
-                    instance_info = metrics[host]['instances'][instance]
+                    # Update Metrics
+                    metrics = utils.metrics_update(metrics, host, new_host,
+                                                   instance, instance_info)
 
-                    other_hosts_resources = updated_resources.copy()
-
-                    del other_hosts_resources[host]
-
-                    new_host = self._get_less_loaded_hosts(
-                        other_hosts_resources, instance_info, metrics
+                    self.lb_logger.log(
+                        "Migrating VM %s from Host %s to Host %s" %
+                        (instance, host, new_host)
                     )
-                    if new_host is None:
-                        self.logger.log(
-                            "No host found to migrate instance %s" % instance
-                        )
-                        ignore_instances.append(instance)
-                        self.lb_logger.log(
-                            "No host found to migrate VM %s from host %s" %
-                            (instance_info, host)
-                        )
-                    else:
-                        migrations.update({instance: new_host})
-                        ignore_instances.append(instance)
 
-                        # Update Resources
-                        updated_resources = utils.reallocate_resources(
-                            updated_resources, host, new_host, instance_info
-                        )
-
-                        # Update Metrics
-                        metrics = utils.metrics_update(metrics, host, new_host,
-                                                       instance, instance_info)
-
-                        self.lb_logger.log(
-                            "Migrating VM %s from Host %s to Host %s" %
-                            (instance, host, new_host)
-                        )
-
-                        if self._host_is_loaded(
+                    if self._host_is_loaded(
                             host, updated_resources, metrics
-                        ):
-                            continue
-                        else:
-                            break
-            self.logger.log("Migrations")
-            self.logger.log(str(migrations))
-            performed_migrations = self.openstack.live_migration(migrations)
-            utils.write_migrations(performed_migrations)
-            utils.write_waiting_instances(performed_migrations, waiting,
-                                          self.wait_rounds)
-            self.host_logger.log("-------------------------------------------")
-            self.lb_logger.log("---------------------------------------------")
+                    ):
+                        continue
+                    else:
+                        break
+
+            still_overloaded = self._host_is_loaded(
+                host, updated_resources, metrics
+            )
+            self.logger.log(str(still_overloaded))
+            if still_overloaded and self.optimizer:
+                self.logger.log("Optimizer Service")
+                params = dict(metrics=original_metrics,
+                              resource_info=resources,
+                              openstack=self.openstack, ratio=self.ratio)
+                optimizer_decision = self.optimizer.decision(**params)
+                if optimizer_decision is not None:
+                    return self.decision()
+        self.logger.log("Migrations")
+        self.logger.log(str(migrations))
+        performed_migrations = self.openstack.live_migration(migrations)
+        utils.write_migrations(performed_migrations)
+        utils.write_waiting_instances(performed_migrations, waiting,
+                                      self.wait_rounds)
+        self.host_logger.log("-------------------------------------------")
+        self.lb_logger.log("---------------------------------------------")
 
     def _calculate_metrics(self, utilization, cap, flavor, instances):
         metrics = {}
