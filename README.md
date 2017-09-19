@@ -57,7 +57,7 @@ Below we list all parameters that help in the heuristics decisions and all avail
 #### List of Available Heuristics
 
 - [BalanceInstancesOS](loadbalancer/service/heuristic/doc/balance.md)
-- [ProactiveCPUCap](loadbalancer/service/heuristic/doc/cpu_capacity.md)
+- [CPUCapAware](loadbalancer/service/heuristic/doc/cpu_capacity.md)
 - [SysbenchPerfCPUCap](loadbalancer/service/heuristic/doc/performance.md)
 
 
