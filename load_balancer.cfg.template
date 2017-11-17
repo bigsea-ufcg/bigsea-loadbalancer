@@ -6,7 +6,7 @@ auth_url=<@auth_url>
 monasca_api_version=2_0
 
 [heuristic]
-# A float value that represents the ratio of number of cores in the hosts. (overcommit factor)
+# A float value that represents the ratio of number of cores in the hosts. (desirable overcommit factor)
 cpu_ratio=0.5
 # An integer that represent the number of rounds that a instance need to wait before be migrated again
 # Each round represents an execution of the loadbalancer
