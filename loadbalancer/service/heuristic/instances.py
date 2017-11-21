@@ -44,7 +44,7 @@ class BalanceInstancesOS(BaseHeuristic):
                 "Gathering metrics and information about Host %s" % host
             )
             hostname = [name for name in self.infra_hostnames if
-                        host in name]
+                        name in host]
             hostname = hostname[0]
             host_instances = self.openstack.get_host_instances(host)
 
