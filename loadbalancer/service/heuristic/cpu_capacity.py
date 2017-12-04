@@ -34,20 +34,22 @@ class CPUCapAware(BaseHeuristic):
     def collect_information(self):
         self.logger.log("Start to collect metrics")
         hosts = self.openstack.available_hosts()
+        self.logger.log(str(hosts))
         metrics = {}
         for host in hosts:
 
             self.lb_logger.log(
                 "Gathering metrics and information about Host %s" % host
             )
-            hostname = [name for name in self.infra_hostnames if name in host]
+
+            hostname = [name for name in self.infra_hostnames
+                        if name.split(".")[0] in host]
             hostname = hostname[0]
             host_instances = self.openstack.get_host_instances(host)
 
             metric = self.monasca.last_measurement(
                 'cpu.percent', {'hostname': hostname}
             )
-            self.host_logger.log("")
             self.logger.log(
                 "Collected cpu.percent metric from host %s" % hostname
             )

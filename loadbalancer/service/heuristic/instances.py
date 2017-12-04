@@ -43,8 +43,8 @@ class BalanceInstancesOS(BaseHeuristic):
             self.lb_logger.log(
                 "Gathering metrics and information about Host %s" % host
             )
-            hostname = [name for name in self.infra_hostnames if
-                        name in host]
+            hostname = [name for name in self.infra_hostnames
+                        if name.split(".")[0] in host]
             hostname = hostname[0]
             host_instances = self.openstack.get_host_instances(host)
 
