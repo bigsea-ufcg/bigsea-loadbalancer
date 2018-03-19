@@ -283,8 +283,5 @@ class CPUUtilization(BaseHeuristic):
                 if selected_host is None:
                     selected_host = host
                 else:
-                    if future_total_cap < selected_host_cap:
-                        selected_host = host
-                    else:
-                        continue
+                    continue
         return selected_host
