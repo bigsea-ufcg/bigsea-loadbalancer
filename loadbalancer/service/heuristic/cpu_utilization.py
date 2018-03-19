@@ -64,17 +64,23 @@ class CPUUtilization(BaseHeuristic):
                 hostname
             )
 
+            cpu_cap_percentage = self.kvm.get_percentage_cpu_cap(
+                    host, host_instances
+            )
+
             instances_flavor = self.openstack.get_flavor_information(
                 host_instances
             )
 
-            instances_metrics = self._calculate_metrics(
-                instances_utilization,
+            instances_metrics, consumption, cap = self._calculate_metrics(
+                instances_utilization, cpu_cap_percentage,
                 instances_flavor, host_instances
             )
 
             metrics.update({
                 host: {'cpu_perc': metric['value'],
+                       'consumption': consumption,
+                       'cap': cap,
                        'instances': instances_metrics
                        },
             })
@@ -121,13 +127,26 @@ class CPUUtilization(BaseHeuristic):
             self.lb_logger.log("Overloaded hosts %s" % str(overloaded_hosts))
             self._define_migrations(metrics, resource, overloaded_hosts)
 
-    def _calculate_metrics(self, utilization, flavor, instances):
+    def _calculate_metrics(self, utilization, cap, flavor, instances):
         metrics = {}
+        host_consumption = 0
+        host_cap = 0
+        self.logger.log(
+                "Calculating consumption and used_capacity for each instance"
+        )
         for instance_id in instances:
             try:
+                used_capacity = flavor[instance_id]['vcpus'] * cap[instance_id]
+                consumption = used_capacity * (utilization[instance_id] / 100.)
+                host_consumption += consumption
+                host_cap += used_capacity
+
                 metrics[instance_id] = {'vcpus': flavor[instance_id]['vcpus'],
                                         'memory': flavor[instance_id]['ram'],
-                                        'disk': flavor[instance_id]['disk']}
+                                        'disk': flavor[instance_id]['disk'],
+                                        'cap': cap[instance_id],
+                                        'consumption': consumption,
+                                        'used_capacity': used_capacity }
                 self.logger.log(
                     "%s | utilization: %s | cap: %s | CPU: %s  " %
                     (instance_id, utilization[instance_id], cap[instance_id],
@@ -137,14 +156,22 @@ class CPUUtilization(BaseHeuristic):
                 self.logger.log(
                     "Missing information about instance %s " % instance_id
                 )
+                used_capacity = flavor[instance_id]['vcpus'] * cap[instance_id]
+                consumption = used_capacity * 1  # Consider 100% of utilization
+                host_consumption += consumption
+                host_cap += used_capacity
+
                 metrics[instance_id] = {'vcpus': flavor[instance_id]['vcpus'],
                                         'memory': flavor[instance_id]['ram'],
-                                        'disk': flavor[instance_id]['disk']}
+                                        'disk': flavor[instance_id]['disk'],
+                                        'cap': cap[instance_id],
+                                        'consumption': consumption,
+                                        'used_capacity': used_capacity }
                 self.logger.log(
                     "Missing information about instance %s " % instance_id
                 )
 
-        return metrics
+        return metrics, host_consumption, host_cap
 
     def _get_overloaded_hosts(self, metrics, resource_info):
         self.logger.log("Looking for overloaded hosts")
