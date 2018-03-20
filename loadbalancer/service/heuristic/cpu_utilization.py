@@ -246,6 +246,10 @@ class CPUUtilization(BaseHeuristic):
                         "Migrating VM %s from Host %s to Host %s"
                         % (instance_id, host, new_host)
                     )
+                    self.lb_logger.log(
+                        "Host %s CPU utilization: %2.f %% | Host %s CPU utilization: %2.f %%"
+                        % (host, metrics[host]['cpu_perc'], new_host, metrics[new_host]['cpu_perc'])
+                    )
 
 
         self.logger.log("Migrations")
